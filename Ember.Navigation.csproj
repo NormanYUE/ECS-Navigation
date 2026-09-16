@@ -19,7 +19,7 @@
              其文件仍留在 None 里并进入 CandidateAssemblyFiles，而 AssemblySearchPaths
              的顺序是 {CandidateAssemblyFiles};{HintPathFromItem}，于是 Reference 会命中
              tests 输出目录里的旧 DLL，HintPath 形同虚设。 -->
-        <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;Editor/**</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>9.0</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <RootNamespace>Ember.Navigation.Editor</RootNamespace>
+        <AssemblyName>Ember.Navigation.Editor</AssemblyName>
+        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Framework</EmberFrameworkDir>
+        <UnityManagedDir Condition="'$(UnityManagedDir)' == ''">/Applications/Unity/Hub/Editor/2022.3.62f2/Unity.app/Contents/Managed</UnityManagedDir>
+        <EmberDeployPackageBinaries Condition="'$(EmberDeployPackageBinaries)' == ''">false</EmberDeployPackageBinaries>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Remove="bin/**" />
+        <Compile Remove="obj/**" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
+        <EmberCoreDll Condition="'$(EmberCoreDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Core.Package/Runtime/Ember.Core.dll</EmberCoreDll>
+        <EmberCollisionDll Condition="'$(EmberCollisionDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Collision.Package/Runtime/Ember.Collision.dll</EmberCollisionDll>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Ember.Navigation.csproj" />
+        <Reference Include="Ember">
+            <HintPath>$(EmberRuntimeDll)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Ember.Core">
+            <HintPath>$(EmberCoreDll)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Ember.Collision">
+            <HintPath>$(EmberCollisionDll)</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="UnityEditor">
+            <HintPath>$(UnityManagedDir)/UnityEditor.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine">
+            <HintPath>$(UnityManagedDir)/UnityEngine/UnityEngine.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <HintPath>$(UnityManagedDir)/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.IMGUIModule">
+            <HintPath>$(UnityManagedDir)/UnityEngine/UnityEngine.IMGUIModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Collections">
+            <HintPath>$(EmberFrameworkDir)/libs/Unity.Collections.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Unity.Mathematics">
+            <HintPath>$(EmberFrameworkDir)/libs/Unity.Mathematics.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+</Project>
