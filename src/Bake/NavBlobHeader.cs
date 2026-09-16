@@ -9,8 +9,8 @@ namespace Ember.Navigation
     /// </summary>
     public unsafe struct NavBlobHeader
     {
-        /// <summary>当前 blob 格式版本。</summary>
-        public const int CurrentVersion = 2;
+        /// <summary>当前 blob 格式版本。v3 起持久化连通度（求解器展开邻居时要用）。</summary>
+        public const int CurrentVersion = 3;
 
         /// <summary>魔数 "NAVB"（小端 0x4E415642），校验文件类型。</summary>
         public const uint Magic = 0x4E415642;
@@ -26,6 +26,12 @@ namespace Ember.Navigation
 
         /// <summary>距离场量化位宽（8 或 16）。</summary>
         public int DistanceBits;
+
+        /// <summary>
+        /// 邻居连通度（2D 4/8、3D 6/26）。烘焙时的簇图按它构建，
+        /// 运行期求解器展开邻居必须用同一个值，否则与烘焙结果不一致。
+        /// </summary>
+        public byte Connectivity;
 
         /// <summary>体素边长（米）。</summary>
         public float VoxelSize;

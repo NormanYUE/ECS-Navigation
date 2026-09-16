@@ -47,6 +47,9 @@ namespace Ember.Navigation
         public int LinkCount;
         public byte DistanceBits;
 
+        /// <summary>邻居连通度（与烘焙时一致）。</summary>
+        public byte Connectivity;
+
         /// <summary>数据已加载可查询。</summary>
         public byte Ready;
 

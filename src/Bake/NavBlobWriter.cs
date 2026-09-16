@@ -151,6 +151,7 @@ namespace Ember.Navigation
                 Version = NavBlobHeader.CurrentVersion,
                 Dimension = input.Dimension,
                 DistanceBits = input.DistanceBits,
+                Connectivity = input.Connectivity,
                 VoxelSize = input.VoxelSize,
                 MaxBakeRadius = input.MaxBakeRadius,
                 TileSize = input.TileSize,

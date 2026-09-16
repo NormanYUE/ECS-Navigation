@@ -1,0 +1,28 @@
+namespace Ember.Navigation
+{
+    /// <summary>
+    /// 全局寻路系统组：请求调度 → 分层 A* + 拉绳。
+    /// <code>manager.GetTicker(updateIdx).Register&lt;NavSystemGroup&gt;();</code>
+    ///
+    /// <b>挂在可变步长 ticker</b>：全局寻路与局部避障的时间尺度不同，
+    /// 避障要稳定步长（<see cref="NavAvoidanceSystemGroup"/>），寻路不必。
+    ///
+    /// 组内注册顺序即管线顺序：先按优先级与数量上限挑出本帧请求，
+    /// 再在时间上限内逐个求解 —— 数量与时间两个上限合起来就是双限预算。
+    ///
+    /// 流场快速路径（多代理共目标时复用一次多源 Dijkstra）尚未接入本组，
+    /// 当前每个请求都走分层 A*。
+    /// </summary>
+    public sealed class NavSystemGroup : SystemGroup
+    {
+        // 框架将基类无参 Configure 标记 Obsolete 以强制显式重写（未来大版本改为 abstract）；
+        // 重写 Obsolete 成员触发 CS0672，此处属框架过渡期的预期用法，抑制之。
+#pragma warning disable CS0672
+        public override void Configure(SystemTicker ticker)
+#pragma warning restore CS0672
+        {
+            ticker.Register<NavRequestSystem>();
+            ticker.Register<NavPathSystem>();
+        }
+    }
+}

@@ -103,6 +103,7 @@ namespace Ember.Navigation
             state.ClusterEdgeCount = header.ClusterEdgeCount;
             state.LinkCount = header.LinkCount;
             state.DistanceBits = (byte)header.DistanceBits;
+            state.Connectivity = header.Connectivity;
             state.Generation++;
             state.Ready = 1;
         }
