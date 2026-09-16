@@ -8,6 +8,7 @@
         <AssemblyName>Ember.Navigation.Editor</AssemblyName>
         <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Framework</EmberFrameworkDir>
         <UnityManagedDir Condition="'$(UnityManagedDir)' == ''">/Applications/Unity/Hub/Editor/2022.3.62f2/Unity.app/Contents/Managed</UnityManagedDir>
+        <EmberPackageDir Condition="'$(EmberPackageDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Navigation.Package</EmberPackageDir>
         <EmberDeployPackageBinaries Condition="'$(EmberDeployPackageBinaries)' == ''">false</EmberDeployPackageBinaries>
     </PropertyGroup>
 
@@ -64,5 +65,15 @@
             <Private>false</Private>
         </Reference>
     </ItemGroup>
+
+    <!-- 部署到包库的 Editor/ 目录：Unity 对名为 Editor 的文件夹有特殊规则，
+         其下的 DLL 自动只进编辑器程序集，无需 asmdef（与 Ember.Package 同构）。 -->
+    <Target Name="DeployEditorDll" AfterTargets="Build"
+            Condition="'$(EmberDeployPackageBinaries)' == 'true'">
+        <MakeDir Directories="$(EmberPackageDir)/Editor"/>
+        <Copy SourceFiles="$(TargetPath)"
+              DestinationFiles="$(EmberPackageDir)/Editor/Ember.Navigation.Editor.dll"
+              SkipUnchangedFiles="true" />
+    </Target>
 
 </Project>
