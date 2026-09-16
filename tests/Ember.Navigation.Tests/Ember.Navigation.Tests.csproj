@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <RootNamespace>Ember.Navigation.Tests</RootNamespace>
+        <AssemblyName>Ember.Navigation.Tests</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <LangVersion>9.0</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Framework</EmberFrameworkDir>
+        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
+        <EmberCoreDll Condition="'$(EmberCoreDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Core.Package/Runtime/Ember.Core.dll</EmberCoreDll>
+        <EmberCollisionDll Condition="'$(EmberCollisionDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Collision.Package/Runtime/Ember.Collision.dll</EmberCollisionDll>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="NUnit" Version="4.0.1" />
+        <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Ember.Navigation.csproj" />
+        <Reference Include="Ember">
+            <HintPath>$(EmberRuntimeDll)</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="Ember.Core">
+            <HintPath>$(EmberCoreDll)</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="Ember.Collision">
+            <HintPath>$(EmberCollisionDll)</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <HintPath>$(EmberFrameworkDir)/libs/UnityEngine.CoreModule.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="Unity.Collections">
+            <HintPath>$(EmberFrameworkDir)/libs/Unity.Collections.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="Unity.Mathematics">
+            <HintPath>$(EmberFrameworkDir)/libs/Unity.Mathematics.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
+        <Reference Include="Unity.Burst">
+            <HintPath>$(MSBuildThisFileDirectory)../../../Ember.Navigation/libs/Unity.Burst.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
+    </ItemGroup>
+
+</Project>
