@@ -24,7 +24,7 @@
 
     <ItemGroup>
         <!-- 三个上游均以发布件引用；上游更新后先发布其包库，再重构建本模块。
-             需要 Ember ≥ 1.11.0（ResizeBuffer）与 Ember.Collision ≥ 0.2.0（ShapeQuery / body 快照）。 -->
+             需要 Ember ≥ 1.11.0（ResizeBuffer）与 Ember.Collision ≥ 0.3.0（ShapeQuery 最近点 / 射线查询、body 快照）。 -->
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
         </Reference>
