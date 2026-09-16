@@ -26,7 +26,7 @@ namespace Ember.Navigation.Tests
             long voxelCount = grid.VoxelCount;
             var region = TestMemory.Alloc(voxelCount * sizeof(int));
             var lookup = TestMemory.Alloc(grid.TileCount * 2 * sizeof(int));
-            var scratch = TestMemory.Alloc(voxelCount * sizeof(int));
+            var scratch = TestMemory.Alloc(voxelCount * 2 * sizeof(int));
 
             for (long i = 0; i < voxelCount; i++) region.As<int>()[i] = 0;
             for (long i = 0; i < grid.TileCount * 2; i++) lookup.As<int>()[i] = -1;

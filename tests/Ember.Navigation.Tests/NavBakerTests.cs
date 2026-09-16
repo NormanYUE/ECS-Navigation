@@ -68,7 +68,7 @@ namespace Ember.Navigation.Tests
                 using var region = TestMemory.Alloc(plan.RegionBytes);
                 using var lookup = TestMemory.Alloc(plan.NodeLookupBytes);
                 for (long i = 0; i < plan.NodeLookupBytes / sizeof(int); i++) lookup.As<int>()[i] = -1;
-                using var scratch = TestMemory.Alloc(plan.ClusterCounts.Nodes * sizeof(int));
+                using var scratch = TestMemory.Alloc(plan.ClusterCounts.Nodes * 2 * sizeof(int));
                 using var nodes = TestMemory.Alloc(plan.ClusterCounts.Nodes * sizeof(NavClusterNode));
                 using var portals = TestMemory.Alloc(plan.ClusterCounts.Portals * sizeof(NavPortal));
                 using var edges = TestMemory.Alloc(plan.ClusterCounts.EdgesBound * sizeof(NavClusterEdge));

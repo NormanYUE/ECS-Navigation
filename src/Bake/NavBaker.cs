@@ -130,7 +130,7 @@ namespace Ember.Navigation
         /// <param name="parent">union-find 缓冲（≥ ParentBytes）。</param>
         /// <param name="regionIds">区域 id 缓冲（≥ RegionBytes）。</param>
         /// <param name="nodeLookup">节点查找表（≥ NodeLookupBytes，调用前全部置 -1）。</param>
-        /// <param name="clusterScratch">簇图工作缓冲（节点门户计数，≥ 节点数 × sizeof(int)）。</param>
+        /// <param name="clusterScratch">簇图工作缓冲（正向 + 反向门户计数，≥ 2 × 节点数 × sizeof(int)）。</param>
         /// <param name="nodes">簇节点输出（≥ ClusterCounts.Nodes）。</param>
         /// <param name="portals">簇门户输出（≥ ClusterCounts.Portals）。</param>
         /// <param name="edges">簇边输出（≥ ClusterCounts.EdgesBound）。</param>
