@@ -92,7 +92,7 @@ namespace Ember.Navigation
             for (int i = 0; i < state.FlowSlotCount; i++)
             {
                 if (slots[i].InUse == 0) continue;
-                if (slots[i].Generation != state.Generation)
+                if (slots[i].Generation != state.Generation || slots[i].FieldEpoch != state.FieldEpoch)
                 {
                     view.ReleaseFlowSlot(ref slots[i]);
                     continue;

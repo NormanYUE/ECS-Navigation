@@ -207,6 +207,13 @@ namespace Ember.Navigation
 
         // ---- 流场缓存 ----
 
+        /// <summary>距离场代际（动态障碍局部重算后递增）。</summary>
+        public readonly int FieldEpoch => State.FieldEpoch;
+
+        /// <summary>推进距离场代际：动态障碍改动了距离场后调用，派生数据据此作废。</summary>
+        public void BumpFieldEpoch() => MutableState.FieldEpoch++;
+
+
         /// <summary>
         /// 确保流场槽位数组存在且容量匹配；数量变化时连同各槽的场缓冲一并重建。
         /// </summary>
@@ -287,6 +294,7 @@ namespace Ember.Navigation
 
             slot.Target = target;
             slot.Generation = generation;
+            slot.FieldEpoch = State.FieldEpoch;
             slot.Complete = 0;
             slot.HeapCount = 0;
 

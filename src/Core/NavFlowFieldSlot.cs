@@ -18,6 +18,9 @@ namespace Ember.Navigation
         /// <summary>播种时的导航数据代际；数据热替换后旧场作废。</summary>
         public int Generation;
 
+        /// <summary>播种时的距离场代际；动态障碍改动距离场后旧场作废。</summary>
+        public int FieldEpoch;
+
         /// <summary>最后一次被请求命中的帧号（LRU 依据）。</summary>
         public int LastUsedFrame;
 

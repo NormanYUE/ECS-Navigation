@@ -59,6 +59,12 @@ namespace Ember.Navigation
         /// <summary>流场缓存是否已配置。</summary>
         public byte FlowReady;
 
+        /// <summary>
+        /// 距离场代际：动态障碍局部重算后递增。派生数据（流场、已有路径）
+        /// 据此判断自己是否建立在过期的距离场上。
+        /// </summary>
+        public int FieldEpoch;
+
         /// <summary>数据已加载可查询。</summary>
         public byte Ready;
 
