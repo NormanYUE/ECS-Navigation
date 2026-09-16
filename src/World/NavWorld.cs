@@ -50,6 +50,15 @@ namespace Ember.Navigation
         /// <summary>邻居连通度（与烘焙时一致）。</summary>
         public byte Connectivity;
 
+        /// <summary>流场缓存槽位数组（<see cref="NavFlowFieldSlot"/>）；未启用时为空句柄。</summary>
+        public BufferHandle FlowSlots;
+
+        /// <summary>流场缓存槽位数。</summary>
+        public int FlowSlotCount;
+
+        /// <summary>流场缓存是否已配置。</summary>
+        public byte FlowReady;
+
         /// <summary>数据已加载可查询。</summary>
         public byte Ready;
 

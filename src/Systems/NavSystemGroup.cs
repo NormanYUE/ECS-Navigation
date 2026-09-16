@@ -7,11 +7,12 @@ namespace Ember.Navigation
     /// <b>挂在可变步长 ticker</b>：全局寻路与局部避障的时间尺度不同，
     /// 避障要稳定步长（<see cref="NavAvoidanceSystemGroup"/>），寻路不必。
     ///
-    /// 组内注册顺序即管线顺序：先按优先级与数量上限挑出本帧请求，
-    /// 再在时间上限内逐个求解 —— 数量与时间两个上限合起来就是双限预算。
+    /// 组内注册顺序即管线顺序：先按优先级与数量上限挑出本帧请求 → 维护流场缓存
+    /// → 在时间上限内逐个求解。数量与时间两个上限合起来就是双限预算。
     ///
-    /// 流场快速路径（多代理共目标时复用一次多源 Dijkstra）尚未接入本组，
-    /// 当前每个请求都走分层 A*。
+    /// 流场缓存已在本组维护，但 <see cref="NavPathSystem"/> 尚未改走它 ——
+    /// 当前每个请求仍跑分层 A*，流场梯度可供业务侧直接查询
+    /// （<c>NavWorldView.TryGetFlowNext</c>）。把它接成寻路的下游快速路径是下一步。
     /// </summary>
     public sealed class NavSystemGroup : SystemGroup
     {
@@ -22,6 +23,7 @@ namespace Ember.Navigation
 #pragma warning restore CS0672
         {
             ticker.Register<NavRequestSystem>();
+            ticker.Register<NavFlowFieldSystem>();
             ticker.Register<NavPathSystem>();
         }
     }

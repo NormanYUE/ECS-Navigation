@@ -34,6 +34,9 @@ namespace Ember.Navigation
         /// <summary>流场缓存池容量（按目标 key 索引，LRU 淘汰）。</summary>
         public int FlowFieldCacheSize;
 
+        /// <summary>流场每帧总弹出预算（跨全部未完成场分摊）。</summary>
+        public int FlowFieldPopBudget;
+
         /// <summary>ORCA 默认时间视界（秒）。</summary>
         public float TimeHorizon;
 
@@ -83,6 +86,7 @@ namespace Ember.Navigation
             RequestBudgetPerFrame = 8,
             RequestBudgetMs = 2f,
             FlowFieldCacheSize = 16,
+            FlowFieldPopBudget = 8192,
             TimeHorizon = 2f,
             TimeHorizonObst = 4f,
             NeighborCellSize = 0f,

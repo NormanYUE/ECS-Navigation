@@ -204,5 +204,151 @@ namespace Ember.Navigation
             var occupancy = m_World.GetBuffer<byte>(state.Occupancy);
             return (occupancy[(int)(index >> 3)] & (byte)(1u << (int)(index & 7))) != 0;
         }
+
+        // ---- 流场缓存 ----
+
+        /// <summary>
+        /// 确保流场槽位数组存在且容量匹配；数量变化时连同各槽的场缓冲一并重建。
+        /// </summary>
+        public unsafe void ConfigureFlowFields(int slotCount)
+        {
+            ref NavWorld state = ref MutableState;
+            if (slotCount <= 0)
+            {
+                ReleaseFlowFields();
+                return;
+            }
+
+            if (state.FlowSlotCount == slotCount && !state.FlowSlots.IsNull)
+            {
+                state.FlowReady = 1;
+                return;
+            }
+
+            ReleaseFlowFields();
+            state.FlowSlots = m_World.CreateBuffer<NavFlowFieldSlot>(slotCount);
+            state.FlowSlotCount = slotCount;
+            state.FlowReady = 1;
+        }
+
+        /// <summary>槽位记录数组基址；未配置时返回 null。</summary>
+        public unsafe NavFlowFieldSlot* FlowSlots()
+        {
+            NavWorld state = State;
+            if (state.FlowSlots.IsNull) return null;
+            return (NavFlowFieldSlot*)m_World.GetBuffer<NavFlowFieldSlot>(state.FlowSlots).UnsafePtr;
+        }
+
+        /// <summary>释放单个槽位的场缓冲并清空记录。</summary>
+        public void ReleaseFlowSlot(ref NavFlowFieldSlot slot)
+        {
+            if (!slot.Distances.IsNull) m_World.DestroyBuffer<float>(slot.Distances);
+            if (!slot.HeapCosts.IsNull) m_World.DestroyBuffer<float>(slot.HeapCosts);
+            if (!slot.HeapVoxels.IsNull) m_World.DestroyBuffer<int>(slot.HeapVoxels);
+            slot = default;
+        }
+
+        /// <summary>释放全部槽位。</summary>
+        public unsafe void ReleaseFlowFields()
+        {
+            ref NavWorld state = ref MutableState;
+            if (state.FlowSlots.IsNull)
+            {
+                state.FlowSlotCount = 0;
+                state.FlowReady = 0;
+                return;
+            }
+
+            NavFlowFieldSlot* slots =
+                (NavFlowFieldSlot*)m_World.GetBuffer<NavFlowFieldSlot>(state.FlowSlots).UnsafePtr;
+            for (int i = 0; i < state.FlowSlotCount; i++) ReleaseFlowSlot(ref slots[i]);
+
+            m_World.DestroyBuffer<NavFlowFieldSlot>(state.FlowSlots);
+            state.FlowSlots = BufferHandle.Null;
+            state.FlowSlotCount = 0;
+            state.FlowReady = 0;
+        }
+
+        /// <summary>
+        /// 为该槽位播种：按需分配场缓冲（体素数变化时重建），重置距离后以目标为源。
+        /// 目标不可走时场被标记完成但全为 ∞ —— 查询恒失败，不会返回垃圾方向。
+        /// </summary>
+        public unsafe bool SeedFlowSlot(ref NavFlowFieldSlot slot, int3 target, int generation)
+        {
+            long voxelCount = Grid.VoxelCount;
+            if (slot.Distances.IsNull || slot.VoxelCount != (int)voxelCount)
+            {
+                ReleaseFlowSlot(ref slot);
+                slot.Distances = m_World.CreateBuffer<float>((int)voxelCount);
+                slot.HeapCosts = m_World.CreateBuffer<float>(HeapCapacity(voxelCount));
+                slot.HeapVoxels = m_World.CreateBuffer<int>(HeapCapacity(voxelCount));
+                slot.VoxelCount = (int)voxelCount;
+            }
+
+            slot.Target = target;
+            slot.Generation = generation;
+            slot.Complete = 0;
+            slot.HeapCount = 0;
+
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            NavFlowFieldSolver.Reset(ref context, voxelCount);
+            bool seeded = NavFlowFieldSolver.Seed(ref context, target);
+            slot.HeapCount = context.HeapCount;
+            if (!seeded) slot.Complete = 1;
+            return seeded;
+        }
+
+        /// <summary>推进该槽位的波前；返回波前是否已耗尽。</summary>
+        public unsafe bool StepFlowSlot(ref NavFlowFieldSlot slot, long popBudget)
+        {
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            bool complete = NavFlowFieldSolver.Step(ref context, popBudget);
+            slot.HeapCount = context.HeapCount;
+            slot.Complete = complete ? 1 : 0;
+            return complete;
+        }
+
+        /// <summary>世界点到流场目标的下一步落点；场未完成或已到局部最优时返回 false。</summary>
+        public unsafe bool TryGetFlowNext(ref NavFlowFieldSlot slot, float3 worldPosition, out float3 next)
+        {
+            next = worldPosition;
+            if (slot.Complete == 0 || slot.Distances.IsNull) return false;
+
+            NavGrid grid = Grid;
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            if (!NavFlowFieldSolver.TryGetNext(ref context, grid.WorldToVoxelOnGrid(worldPosition),
+                    out int3 nextVoxel))
+                return false;
+
+            next = grid.VoxelToWorld(nextVoxel);
+            return true;
+        }
+
+        /// <summary>波前堆容量：Dijkstra 波前宽度上界按体素数计，惰性删除会重复入堆，故留 4 倍余量。</summary>
+        private static int HeapCapacity(long voxelCount)
+        {
+            long capacity = voxelCount * 4;
+            if (capacity > int.MaxValue - 8) capacity = int.MaxValue - 8;
+            return (int)math.max(capacity, 1024);
+        }
+
+        private unsafe NavFlowFieldSolver.Context BuildFlowContext(in NavFlowFieldSlot slot)
+        {
+            NavWorld state = State;
+            return new NavFlowFieldSolver.Context
+            {
+                Grid = Grid,
+                Connectivity = state.Connectivity,
+                Distances = (float*)m_World.GetBuffer<float>(slot.Distances).UnsafePtr,
+                DistanceLevels = (byte*)m_World.GetBuffer<byte>(state.Distance).UnsafePtr,
+                Occupancy = (byte*)m_World.GetBuffer<byte>(state.Occupancy).UnsafePtr,
+                Costs = (byte*)m_World.GetBuffer<byte>(state.Cost).UnsafePtr,
+                HeapCosts = (float*)m_World.GetBuffer<float>(slot.HeapCosts).UnsafePtr,
+                HeapVoxels = (int*)m_World.GetBuffer<int>(slot.HeapVoxels).UnsafePtr,
+                HeapCapacity = m_World.GetBufferLength<float>(slot.HeapCosts),
+                HeapCount = slot.HeapCount,
+                RequiredLevel = 0,
+            };
+        }
     }
 }
