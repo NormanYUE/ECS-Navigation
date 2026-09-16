@@ -43,6 +43,15 @@ namespace Ember.Navigation
         /// <summary>邻居网格单元边长（米，0 = 自动取 2 × 最大代理半径）。</summary>
         public float NeighborCellSize;
 
+        /// <summary>每代理参与 ORCA 的最大邻居数。</summary>
+        public int MaxNeighbors;
+
+        /// <summary>路径跟随的航点到达半径（米）。</summary>
+        public float ArriveRadius;
+
+        /// <summary>路径跟随沿折线的前瞻距离（米），0 = 直冲当前航点。</summary>
+        public float LookAheadDistance;
+
         /// <summary>新代理默认半径。</summary>
         public float DefaultRadius;
 
@@ -77,6 +86,9 @@ namespace Ember.Navigation
             TimeHorizon = 2f,
             TimeHorizonObst = 4f,
             NeighborCellSize = 0f,
+            MaxNeighbors = 8,
+            ArriveRadius = 0.5f,
+            LookAheadDistance = 1f,
             DefaultRadius = 0.5f,
             DefaultMaxSpeed = 3f,
             SolverIterations = 8,

@@ -37,6 +37,12 @@ namespace Ember.Navigation
         /// <summary>当前数据代际。</summary>
         public readonly int Generation => State.Generation;
 
+        /// <summary>
+        /// 当前段句柄与标量（只读快照）。供需要在调度前取裸指针的系统使用 ——
+        /// 句柄本身不持有内存，取指针仍须经 <c>World.GetBuffer</c>。
+        /// </summary>
+        public readonly NavWorld StateSnapshot => State;
+
         /// <summary>重建网格描述（从单例标量）。</summary>
         public readonly NavGrid Grid => new()
         {
