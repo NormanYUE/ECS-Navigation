@@ -324,6 +324,38 @@ namespace Ember.Navigation
             return true;
         }
 
+        /// <summary>
+        /// 沿流场梯度从 <paramref name="start"/> 下降到 <paramref name="goal"/>，
+        /// 导出体素路径。因为距离值单调递减、图有限，只要可达就必然收敛到源；
+        /// 容量不足或中途失向则返回 false（调用方回退分层 A*）。
+        /// </summary>
+        public unsafe bool TryExtractFlowPath(
+            ref NavFlowFieldSlot slot, int3 start, int3 goal, int3* waypoints, int capacity,
+            out int count)
+        {
+            count = 0;
+            if (slot.Complete == 0 || capacity <= 0) return false;
+
+            NavGrid grid = Grid;
+            if (!grid.IsInside(start) || !grid.IsInside(goal)) return false;
+
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            int3 current = start;
+            waypoints[count++] = current;
+
+            while (!current.Equals(goal))
+            {
+                if (count >= capacity) return false;
+                if (!NavFlowFieldSolver.TryGetNext(ref context, current, out int3 next)) return false;
+                if (next.Equals(current)) return false;
+
+                current = next;
+                waypoints[count++] = current;
+            }
+
+            return true;
+        }
+
         /// <summary>波前堆容量：Dijkstra 波前宽度上界按体素数计，惰性删除会重复入堆，故留 4 倍余量。</summary>
         private static int HeapCapacity(long voxelCount)
         {

@@ -71,6 +71,11 @@ namespace Ember.Navigation
             line = default;
             if (timeHorizon <= 0f || timeStep <= 0f) return false;
 
+            // 平面法线为零即三维模式：二维的切线分支依赖平面内旋转 90°，三维用切平面解析式。
+            if (math.lengthsq(planeNormal) <= Epsilon * Epsilon)
+                return NavOrcaMath3D.Build(position, velocity, radius, neighborPosition, neighborVelocity,
+                    neighborRadius, timeHorizon, timeStep, responsibility, out line);
+
             float3 relativePosition = NavPlane.Flatten(neighborPosition - position, planeNormal);
             float3 relativeVelocity = NavPlane.Flatten(velocity - neighborVelocity, planeNormal);
 

@@ -80,13 +80,11 @@ namespace Ember.Navigation
 
         public void Execute(int index)
         {
-            if (Modes[index] == (byte)NavAgentMode.Flying)
-            {
-                NewVelocities[index] = Velocities[index];
-                return;
-            }
+            // 地面代理在导航平面内做二维求解；飞行代理（以及三维烘焙下的全部代理）走三维。
+            float3 planeNormal = Modes[index] == (byte)NavAgentMode.Ground
+                ? NavPlane.Normal(Dimension)
+                : float3.zero;
 
-            float3 planeNormal = NavPlane.Normal(Dimension);
             float3 position = Positions[index];
             float3 velocity = Velocities[index];
             float radius = Radii[index];
@@ -138,15 +136,18 @@ namespace Ember.Navigation
                 lines[lineCount++] = line;
             }
 
-            NavLinearProgram2D.Solve(
-                lines,
-                lineCount,
-                obstacleLineCount,
-                MaxSpeeds[index],
-                Preferred[index],
-                Dimension,
-                (NavOrcaLine*)Scratch.GetUnsafePtr() + lineOffset,
-                out float3 result);
+            bool planar = math.lengthsq(planeNormal) > 0f;
+            float3 result;
+            if (planar)
+            {
+                NavLinearProgram2D.Solve(lines, lineCount, obstacleLineCount, MaxSpeeds[index],
+                    Preferred[index], Dimension, (NavOrcaLine*)Scratch.GetUnsafePtr() + lineOffset,
+                    out result);
+            }
+            else
+            {
+                NavLinearProgram3D.Solve(lines, lineCount, MaxSpeeds[index], Preferred[index], out result);
+            }
 
             NewVelocities[index] = result;
             NeighborCounts[index] = neighborCount;

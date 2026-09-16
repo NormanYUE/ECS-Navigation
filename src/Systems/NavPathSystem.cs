@@ -99,7 +99,7 @@ namespace Ember.Navigation
                         if (requests.At(row).Status != NavRequestStatus.InProgress) continue;
                         if (Stopwatch.GetTimestamp() >= deadline) return;
 
-                        SolveOne(world, grid, state, ref context, occupancy, distanceLevels,
+                        SolveOne(world, view, grid, state, ref context, occupancy, distanceLevels,
                             chunk, requests, transforms, agents, paths, row);
                     }
                 }
@@ -109,6 +109,7 @@ namespace Ember.Navigation
         /// <summary>单个请求：HPA* → 拉绳 → 写航点 buffer → 推进状态。</summary>
         private unsafe void SolveOne(
             World world,
+            in NavWorldView view,
             in NavGrid grid,
             in NavWorld state,
             ref NavHpaPathfinder.Context context,
@@ -128,8 +129,22 @@ namespace Ember.Navigation
             context.AStar.RequiredLevel = requiredLevel;
             context.AStar.Goal = goal;
 
-            int raw = NavHpaPathfinder.FindPath(ref context, start, goal,
-                (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
+            // 目标已有完成的流场时改走梯度下降：多代理共目标只需一次 Dijkstra，
+            // 每代理只剩沿路径走的开销。路径不如 A* 短，但接着要拉绳平滑。
+            int raw = -1;
+            NavFlowFieldSlot* flowSlots = view.FlowSlots();
+            int flowSlot = flowSlots == null ? -1 : FindCompletedFlowSlot(flowSlots, state, goal);
+            if (flowSlot >= 0
+                && view.TryExtractFlowPath(ref flowSlots[flowSlot], start, goal,
+                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(),
+                    m_Workspace.RawWaypoints.Length, out int flowCount))
+            {
+                raw = flowCount;
+            }
+
+            if (raw <= 0)
+                raw = NavHpaPathfinder.FindPath(ref context, start, goal,
+                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
 
             int smoothed = raw > 0
                 ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, requiredLevel,
@@ -155,6 +170,20 @@ namespace Ember.Navigation
             NavRequest request = requests.At(row);
             request.Status = smoothed > 0 ? NavRequestStatus.Ready : NavRequestStatus.Failed;
             requests.At(row) = request;
+        }
+
+        /// <summary>找到与目标体素匹配、且波前已耗尽的流场槽位；没有返回 -1。</summary>
+        private static unsafe int FindCompletedFlowSlot(
+            NavFlowFieldSlot* slots, in NavWorld state, int3 goal)
+        {
+            for (int i = 0; i < state.FlowSlotCount; i++)
+            {
+                if (slots[i].InUse == 0 || slots[i].Complete == 0) continue;
+                if (slots[i].Generation != state.Generation) continue;
+                if (slots[i].Target.Equals(goal)) return i;
+            }
+
+            return -1;
         }
 
         /// <summary>把代理半径换算成距离场的量化等级（与 <c>NavWorldView.IsWalkable</c> 同口径）。</summary>
