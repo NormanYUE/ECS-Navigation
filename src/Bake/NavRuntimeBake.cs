@@ -65,16 +65,20 @@ namespace Ember.Navigation
             int colliderCount,
             float3* vertexPool,
             int vertexPoolLength,
-            NavRuntimeBakeWorkspace workspace)
+            NavRuntimeBakeWorkspace workspace,
+            NavBakeAnnotation* annotations = null,
+            int annotationCount = 0,
+            NavOffMeshLink* links = null,
+            int linkCount = 0)
         {
             NavBaker.PlanResult plan = NavBaker.Plan(
-                in input, colliders, colliderCount, vertexPool, vertexPoolLength, 0);
+                in input, colliders, colliderCount, vertexPool, vertexPoolLength, linkCount);
             if (plan.BlobBytes <= 0) return -1;
 
             workspace.Ensure(in plan);
             return NavBaker.Bake(
                 in plan, in input, colliders, colliderCount, vertexPool, vertexPoolLength,
-                null, 0, null, 0,
+                annotations, annotationCount, links, linkCount,
                 (float*)workspace.Distance.GetUnsafePtr(),
                 (byte*)workspace.Occupancy.GetUnsafePtr(),
                 (float*)workspace.Costs.GetUnsafePtr(),
@@ -101,9 +105,14 @@ namespace Ember.Navigation
             int colliderCount,
             float3* vertexPool,
             int vertexPoolLength,
-            NavRuntimeBakeWorkspace workspace)
+            NavRuntimeBakeWorkspace workspace,
+            NavBakeAnnotation* annotations = null,
+            int annotationCount = 0,
+            NavOffMeshLink* links = null,
+            int linkCount = 0)
         {
-            long bytes = Bake(in input, colliders, colliderCount, vertexPool, vertexPoolLength, workspace);
+            long bytes = Bake(in input, colliders, colliderCount, vertexPool, vertexPoolLength,
+                workspace, annotations, annotationCount, links, linkCount);
             if (bytes <= 0) return false;
 
             byte* blob = (byte*)workspace.Blob.GetUnsafePtr();

@@ -101,9 +101,19 @@ namespace Ember.Navigation.Editor
                 vertexPoolLength = collision.VertexPool.Length;
             }
 
+            // 标注体从场景收集：它们是烘焙期输入，烘完固化进距离场与代价层。
+            NavAnnotationVolume[] volumes = Object.FindObjectsOfType<NavAnnotationVolume>();
+            var annotationBuffer = new NativeArray<NavBakeAnnotation>(
+                math.max(volumes.Length, 1), Allocator.Temp);
+            var annotationPtr = (NavBakeAnnotation*)annotationBuffer.GetUnsafePtr();
+            for (int i = 0; i < volumes.Length; i++) annotationPtr[i] = volumes[i].ToAnnotation();
+
             using var workspace = new NavRuntimeBakeWorkspace();
             long bytes = NavRuntimeBake.Bake(m_Input, (NavBakeCollider*)colliders.GetUnsafePtr(), count,
-                vertexPool, vertexPoolLength, workspace);
+                vertexPool, vertexPoolLength, workspace,
+                volumes.Length > 0 ? annotationPtr : null,
+                volumes.Length);
+            annotationBuffer.Dispose();
             if (bytes <= 0)
             {
                 m_Status = "烘焙失败：计划阶段未产出有效 blob。";
@@ -120,7 +130,8 @@ namespace Ember.Navigation.Editor
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
 
-            m_Status = $"已烘焙 {count} 个静态碰撞体，blob {bytes} 字节 → {m_OutputPath}";
+            m_Status = $"已烘焙 {count} 个静态碰撞体、{volumes.Length} 个标注体，" +
+                $"blob {bytes} 字节 → {m_OutputPath}";
         }
 
         private NavBakedAsset LoadOrCreate(string path)
