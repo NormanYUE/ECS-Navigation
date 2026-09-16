@@ -15,11 +15,12 @@
         <EmberGeneratorDll Condition="'$(EmberGeneratorDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/RoslynAnalyzers/Ember.Generator.dll</EmberGeneratorDll>
         <EmberPackageDir Condition="'$(EmberPackageDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Navigation.Package</EmberPackageDir>
         <EmberDeployPackageBinaries Condition="'$(EmberDeployPackageBinaries)' == ''">false</EmberDeployPackageBinaries>
+        <!-- tests/ 是独立测试工程，必须从默认通配项整体排除：只写 Compile Remove 时，
+             其文件仍留在 None 里并进入 CandidateAssemblyFiles，而 AssemblySearchPaths
+             的顺序是 {CandidateAssemblyFiles};{HintPathFromItem}，于是 Reference 会命中
+             tests 输出目录里的旧 DLL，HintPath 形同虚设。 -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
     </PropertyGroup>
-
-    <ItemGroup>
-        <Compile Remove="tests/**" />
-    </ItemGroup>
 
     <ItemGroup>
         <!-- 三个上游均以发布件引用；上游更新后先发布其包库，再重构建本模块。
