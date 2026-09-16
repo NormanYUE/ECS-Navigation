@@ -83,6 +83,15 @@ namespace Ember.Navigation
         /// <summary>体素线性下标 → tile 线性下标。</summary>
         public readonly int VoxelToTileIndex(int3 voxel) => TileIndex(VoxelToTileCoord(voxel));
 
+        /// <summary>把世界坐标投到网格：2D 时无效轴归 0（网格只有一层）。</summary>
+        public readonly int3 WorldToVoxelOnGrid(float3 world)
+        {
+            int3 voxel = WorldToVoxel(world);
+            if (Dimensions.z == 1) voxel.z = 0;
+            if (Dimensions.y == 1) voxel.y = 0;
+            return voxel;
+        }
+
         /// <summary>坐标是否在网格界内。</summary>
         public readonly bool IsInside(int3 voxel) =>
             voxel.x >= 0 && voxel.y >= 0 && voxel.z >= 0

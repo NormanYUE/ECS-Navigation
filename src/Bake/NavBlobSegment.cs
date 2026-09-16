@@ -33,7 +33,10 @@ namespace Ember.Navigation
         /// <summary>off-mesh link 双向表。</summary>
         Links = 9,
 
+        /// <summary>每体素簇 id（tile 内局部连通分量，运行时簇内 A* 粒度）。</summary>
+        VoxelNodes = 10,
+
         /// <summary>段总数。</summary>
-        Count = 10,
+        Count = 11,
     }
 }

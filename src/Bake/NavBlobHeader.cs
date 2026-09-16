@@ -10,7 +10,7 @@ namespace Ember.Navigation
     public unsafe struct NavBlobHeader
     {
         /// <summary>当前 blob 格式版本。</summary>
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         /// <summary>魔数 "NAVB"（小端 0x4E415642），校验文件类型。</summary>
         public const uint Magic = 0x4E415642;

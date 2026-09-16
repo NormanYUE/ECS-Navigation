@@ -122,7 +122,7 @@ namespace Ember.Navigation
             for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
             {
-                if (!IsValidNeighbor(dims, ctx.Connectivity, voxel, dx, dy, dz, out int3 n))
+                if (!NavNeighbor.IsValid(dims, ctx.Connectivity, voxel, dx, dy, dz, out int3 n))
                     continue;
                 int ni = grid.VoxelIndex(n);
                 float d = ctx.Distances[ni];
@@ -159,7 +159,7 @@ namespace Ember.Navigation
             for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
             {
-                if (!IsValidNeighbor(dims, ctx.Connectivity, voxel, dx, dy, dz, out int3 n))
+                if (!NavNeighbor.IsValid(dims, ctx.Connectivity, voxel, dx, dy, dz, out int3 n))
                     continue;
                 int ni = grid.VoxelIndex(n);
                 if (!IsWalkable(ref ctx, ni)) continue;
@@ -175,32 +175,6 @@ namespace Ember.Navigation
                         ref ctx.HeapCount, candidate, ni);
                 }
             }
-        }
-
-        /// <summary>
-        /// 邻格有效性：模板（4/8 限制在平面内，6/26 允许立体）+ 界内 + 非自身。
-        /// </summary>
-        private static bool IsValidNeighbor(int3 dims, int connectivity, int3 voxel,
-            int dx, int dy, int dz, out int3 neighbor)
-        {
-            neighbor = default;
-            if (dx == 0 && dy == 0 && dz == 0) return false;
-
-            int manhattan = math.abs(dx) + math.abs(dy) + math.abs(dz);
-            bool diagonal = connectivity == 8 || connectivity == 26;
-
-            if (manhattan > 1 && !diagonal) return false;
-
-            // 2D 模板限制在平面内。
-            if ((connectivity == 4 || connectivity == 8) && dims.z == 1 && dz != 0) return false;
-            if ((connectivity == 4 || connectivity == 8) && dims.y == 1 && dy != 0) return false;
-
-            int3 n = voxel + new int3(dx, dy, dz);
-            if (n.x < 0 || n.y < 0 || n.z < 0 || n.x >= dims.x || n.y >= dims.y || n.z >= dims.z)
-                return false;
-
-            neighbor = n;
-            return true;
         }
 
         private static bool IsWalkable(ref Context ctx, int index)

@@ -36,6 +36,7 @@ namespace Ember.Navigation
         public BufferHandle ClusterEdges;   // NavClusterEdge
         public BufferHandle EdgePortals;    // NavPortal
         public BufferHandle Links;          // NavOffMeshLink
+        public BufferHandle VoxelNodes;     // int（tile 内局部簇 id，HPA* 粒度）
 
         // ---- 计数 ----
         public long VoxelCount;
@@ -64,6 +65,7 @@ namespace Ember.Navigation
         public BufferHandle SpareClusterEdges;   // NavClusterEdge
         public BufferHandle SpareEdgePortals;    // NavPortal（边紧凑表）
         public BufferHandle SpareLinks;          // NavOffMeshLink
+        public BufferHandle SpareVoxelNodes;     // int
 
         /// <summary>是否已完成首次加载。</summary>
         public readonly bool IsReady => Ready != 0;

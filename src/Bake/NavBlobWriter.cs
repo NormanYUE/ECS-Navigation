@@ -42,6 +42,9 @@ namespace Ember.Navigation
             /// <summary>link 大小。</summary>
             public long Links;
 
+            /// <summary>每体素簇 id 大小。</summary>
+            public long VoxelNodes;
+
             /// <summary>blob 总大小。</summary>
             public long Total;
         }
@@ -57,7 +60,7 @@ namespace Ember.Navigation
             long voxelCount,
             int distanceBits,
             int clusterNodeCount,
-            int portalCount,
+                int portalCount,
             int clusterEdgeCount,
             int linkCount)
         {
@@ -74,6 +77,7 @@ namespace Ember.Navigation
                 ClusterEdges = (long)clusterEdgeCount * sizeof(NavClusterEdge),
                 EdgePortals = (long)portalCount / 2 * sizeof(NavPortal),
                 Links = (long)linkCount * sizeof(NavOffMeshLink),
+                VoxelNodes = voxelCount * sizeof(int),
             };
             sizes.Total = Total(sizes);
             return sizes;
@@ -92,6 +96,7 @@ namespace Ember.Navigation
             total += Align8(sizes.ClusterEdges);
             total += Align8(sizes.EdgePortals);
             total += Align8(sizes.Links);
+            total += Align8(sizes.VoxelNodes);
             return total;
         }
 
@@ -123,6 +128,7 @@ namespace Ember.Navigation
             byte* occupancy,
             float* costs,
             int* regionIds,
+            int* voxelNodes,
             int regionCount,
             NavClusterNode* nodes,
             int nodeCount,
@@ -170,7 +176,8 @@ namespace Ember.Navigation
             cursor = PlanSegment(offsets, (int)NavBlobSegment.ClusterPortals, cursor, sizes.ClusterPortals);
             cursor = PlanSegment(offsets, (int)NavBlobSegment.ClusterEdges, cursor, sizes.ClusterEdges);
             cursor = PlanSegment(offsets, (int)NavBlobSegment.EdgePortals, cursor, sizes.EdgePortals);
-            PlanSegment(offsets, (int)NavBlobSegment.Links, cursor, sizes.Links);
+            cursor = PlanSegment(offsets, (int)NavBlobSegment.Links, cursor, sizes.Links);
+            PlanSegment(offsets, (int)NavBlobSegment.VoxelNodes, cursor, sizes.VoxelNodes);
 
             for (int s = 0; s < (int)NavBlobSegment.Count; s++)
             {
@@ -219,6 +226,8 @@ namespace Ember.Navigation
                 sizes.EdgePortals);
             WriteSegment(p + offsets[(int)NavBlobSegment.Links], links, linkCount * sizeof(NavOffMeshLink));
 
+            WriteSegment(p + offsets[(int)NavBlobSegment.VoxelNodes], voxelNodes, sizes.VoxelNodes);
+
             return sizes.Total;
         }
 
@@ -252,6 +261,7 @@ namespace Ember.Navigation
                 (int)NavBlobSegment.ClusterEdges => sizes.ClusterEdges,
                 (int)NavBlobSegment.EdgePortals => sizes.EdgePortals,
                 (int)NavBlobSegment.Links => sizes.Links,
+                (int)NavBlobSegment.VoxelNodes => sizes.VoxelNodes,
                 _ => 0,
             };
         }

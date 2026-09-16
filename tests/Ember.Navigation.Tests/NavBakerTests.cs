@@ -66,8 +66,8 @@ namespace Ember.Navigation.Tests
                 using var costs = TestMemory.Alloc(plan.CostBytes);
                 using var parent = TestMemory.Alloc(plan.ParentBytes);
                 using var region = TestMemory.Alloc(plan.RegionBytes);
-                using var lookup = TestMemory.Alloc(plan.NodeLookupBytes);
-                for (long i = 0; i < plan.NodeLookupBytes / sizeof(int); i++) lookup.As<int>()[i] = -1;
+                using var lookup = TestMemory.Alloc(plan.NodeLookupBytes); // tile 前缀工作区
+                using var voxelNodes = TestMemory.Alloc(plan.VoxelNodesBytes);
                 using var scratch = TestMemory.Alloc(plan.ClusterCounts.Nodes * 2 * sizeof(int));
                 using var nodes = TestMemory.Alloc(plan.ClusterCounts.Nodes * sizeof(NavClusterNode));
                 using var portals = TestMemory.Alloc(plan.ClusterCounts.Portals * sizeof(NavPortal));
@@ -80,7 +80,7 @@ namespace Ember.Navigation.Tests
                 return NavBaker.Bake(in plan, in input, colliderPtr, colliders.Length,
                     null, 0, null, 0, null, 0,
                     distance.As<float>(), occupancy.As<byte>(), costs.As<float>(),
-                    parent.As<int>(), region.As<int>(), lookup.As<int>(), scratch.As<int>(),
+                    parent.As<int>(), region.As<int>(), lookup.As<int>(), voxelNodes.As<int>(), scratch.As<int>(),
                     nodes.As<NavClusterNode>(), portals.As<NavPortal>(), edges.As<NavClusterEdge>(),
                     edgeKeys.As<long>(), edgeCounts.As<int>(), edgePortals.As<NavPortal>(),
                     blob.As<byte>());

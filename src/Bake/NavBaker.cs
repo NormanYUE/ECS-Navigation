@@ -39,8 +39,11 @@ namespace Ember.Navigation
             /// <summary>区域 id 字节数（int / 体素）。</summary>
             public long RegionBytes;
 
-            /// <summary>节点查找表字节数（int × TileCount × maxRegionCount）。</summary>
+            /// <summary>tile 前缀偏移表字节数（int × TileCount，簇标记用工作区）。</summary>
             public long NodeLookupBytes;
+
+            /// <summary>每体素簇 id 字节数（int / 体素，blob VoxelNodes 段）。</summary>
+            public long VoxelNodesBytes;
 
             /// <summary>簇图计数（边上界，精确边数以 Bake 返回值为准）。</summary>
             public NavClusterGraphBuilder.Counts ClusterCounts;
@@ -68,6 +71,7 @@ namespace Ember.Navigation
             int linkCount,
             int maxRegionCountUpperBound = 64)
         {
+            // maxRegionCountUpperBound 仅为兼容保留；节点数上界 = 体素数。
             Aabb bounds = NavVoxelizer.ComputeBounds(in input, colliders, colliderCount,
                 vertexPool, vertexPoolLength, input.MaxBakeRadius);
 
@@ -87,7 +91,7 @@ namespace Ember.Navigation
             long voxelCount = grid.VoxelCount;
             var counts = new NavClusterGraphBuilder.Counts
             {
-                Nodes = (int)math.min(grid.TileCount * maxRegionCountUpperBound, voxelCount),
+                Nodes = (int)voxelCount,
                 Portals = (int)math.min(voxelCount * 6, int.MaxValue),
                 EdgesBound = (int)math.min(voxelCount * 3, int.MaxValue),
             };
@@ -105,7 +109,8 @@ namespace Ember.Navigation
                 CostBytes = voxelCount * sizeof(float),
                 ParentBytes = voxelCount * sizeof(int),
                 RegionBytes = voxelCount * sizeof(int),
-                NodeLookupBytes = grid.TileCount * maxRegionCountUpperBound * sizeof(int),
+                NodeLookupBytes = grid.TileCount * sizeof(int),
+                VoxelNodesBytes = voxelCount * sizeof(int),
                 ClusterCounts = counts,
                 BlobBytes = sizes.Total,
             };
@@ -129,7 +134,8 @@ namespace Ember.Navigation
         /// <param name="costs">代价缓冲（≥ CostBytes）。</param>
         /// <param name="parent">union-find 缓冲（≥ ParentBytes）。</param>
         /// <param name="regionIds">区域 id 缓冲（≥ RegionBytes）。</param>
-        /// <param name="nodeLookup">节点查找表（≥ NodeLookupBytes，调用前全部置 -1）。</param>
+        /// <param name="nodeLookup">工作缓冲（tile 前缀偏移表，≥ NodeLookupBytes = TileCount × sizeof(int)）。</param>
+        /// <param name="voxelNodes">输出：每体素簇 id（≥ VoxelNodesBytes）。</param>
         /// <param name="clusterScratch">簇图工作缓冲（正向 + 反向门户计数，≥ 2 × 节点数 × sizeof(int)）。</param>
         /// <param name="nodes">簇节点输出（≥ ClusterCounts.Nodes）。</param>
         /// <param name="portals">簇门户输出（≥ ClusterCounts.Portals）。</param>
@@ -156,6 +162,7 @@ namespace Ember.Navigation
             int* parent,
             int* regionIds,
             int* nodeLookup,
+            int* voxelNodes,
             int* clusterScratch,
             NavClusterNode* nodes,
             NavPortal* portals,
@@ -177,32 +184,27 @@ namespace Ember.Navigation
             int regionCount = NavRegionLabeler.Label(in plan.Grid, input.Connectivity,
                 occupancy, parent, regionIds);
 
-            // 区域数超过上界时节点查找表会越界 —— Plan 的上界是软估计，
-            // 真实表长 = TileCount × regionCount，regionCount ≤ 体素数。
-            // 调用方应给足 NodeLookupBytes；此处校验并 fail-fast。
-            long requiredLookup = plan.TileCount * regionCount * sizeof(int);
-            if (requiredLookup > plan.NodeLookupBytes)
-            {
-                throw new InvalidOperationException(
-                    $"NavBaker.Bake: region count {regionCount} exceeds Plan upper bound; " +
-                    $"node lookup needs {requiredLookup} bytes but only {plan.NodeLookupBytes} provided.");
-            }
+            // tile 内局部连通分量 → 簇 id（真正的 HPA* 节点粒度；
+            // 「tile × 全局区域」的交集在 tile 内未必连通，不能直接当簇）。
+            int* tileOffsets = nodeLookup; // 复用工作区：长度 TileCount
+            int nodeCount = NavTileLocalLabeler.Label(in plan.Grid, input.Connectivity,
+                occupancy, parent, tileOffsets, voxelNodes);
 
-            var counts = NavClusterGraphBuilder.Count(in plan.Grid, regionIds, regionCount, nodeLookup);
+            var counts = NavClusterGraphBuilder.Count(in plan.Grid, voxelNodes, regionIds, nodeCount);
             if (counts.Portals > plan.ClusterCounts.Portals || counts.EdgesBound > plan.ClusterCounts.EdgesBound)
             {
                 throw new InvalidOperationException(
                     "NavBaker.Bake: cluster graph exceeds Plan upper bound; enlarge Plan parameters.");
             }
 
-            int edgeCount = NavClusterGraphBuilder.Build(in plan.Grid, regionIds, regionCount,
-                nodeLookup, clusterScratch, nodes, portals, edges, edgeKeys, edgePortalCounts, edgePortals);
+            int edgeCount = NavClusterGraphBuilder.Build(in plan.Grid, voxelNodes, regionIds, nodeCount,
+                clusterScratch, nodes, portals, edges, edgeKeys, edgePortalCounts, edgePortals);
 
             Aabb bounds = new(plan.Grid.Origin,
                 plan.Grid.Origin + (float3)plan.Grid.Dimensions * plan.Grid.VoxelSize);
 
             return NavBlobWriter.Write(in plan.Grid, in input, in bounds,
-                distance, occupancy, costs, regionIds, regionCount,
+                distance, occupancy, costs, regionIds, voxelNodes, regionCount,
                 nodes, counts.Nodes, portals, counts.Portals, edges, edgeCount, edgePortals,
                 links, linkCount, blob);
         }

@@ -78,6 +78,8 @@ namespace Ember.Navigation
                 blob, NavBlobSegment.EdgePortals, edgePortalCount);
             state.Links = LoadSegment<NavOffMeshLink>(state.Links, ref state.SpareLinks,
                 blob, NavBlobSegment.Links, header.LinkCount);
+            state.VoxelNodes = LoadSegment<int>(state.VoxelNodes, ref state.SpareVoxelNodes,
+                blob, NavBlobSegment.VoxelNodes, voxelCount);
 
             state.OriginX = header.Origin.x;
             state.OriginY = header.Origin.y;

@@ -4,7 +4,8 @@ namespace Ember.Navigation
 {
     /// <summary>
     /// 簇图构建（HPA* 结构，烘焙期一次构建永久复用）：
-    /// 节点 = tile × 连通区域；门户 = 相邻 tile 边界上同区域双向可通行的体素对；
+    /// 节点 = tile 内局部连通分量（<see cref="NavTileLocalLabeler"/> 产出的全局化 id）；
+    /// 门户 = 相邻 tile 边界上同全局区域、不同局部簇的体素对；
     /// 边 = 节点对归并（权重 = 门户数）。
     /// 两遍式：先 <see cref="Count"/> 拿精确数量（容量决策），再 <see cref="Build"/> 填充。
     /// 全部输出按线性下标扫描顺序，确定性。
@@ -14,7 +15,7 @@ namespace Ember.Navigation
         /// <summary>构建产物计数。</summary>
         public struct Counts
         {
-            /// <summary>簇节点数。</summary>
+            /// <summary>簇节点数（= Label 返回值）。</summary>
             public int Nodes;
 
             /// <summary>有向门户数（每个无向门户两侧各一条）。</summary>
@@ -25,37 +26,34 @@ namespace Ember.Navigation
         }
 
         /// <summary>
-        /// 统计节点 / 门户 / 边上界。工作数组调用前全部置 -1。
+        /// 统计门户 / 边上界。节点数由调用方从 <see cref="NavTileLocalLabeler.Label"/> 获得。
         /// </summary>
         /// <param name="grid">网格。</param>
-        /// <param name="regionIds">每体素 region id（占据格 -1），长度 = VoxelCount。</param>
-        /// <param name="regionCount">区域数 R。</param>
-        /// <param name="nodeOfTileRegion">工作数组，长度 = TileCount × R。</param>
+        /// <param name="voxelNodes">每体素簇 id（<see cref="NavTileLocalLabeler"/> 产出）。</param>
+        /// <param name="regionIds">每体素全局区域 id（门户同区域校验）。</param>
+        /// <param name="nodeCount">簇节点数。</param>
         public static Counts Count(
             in NavGrid grid,
+            int* voxelNodes,
             int* regionIds,
-            int regionCount,
-            int* nodeOfTileRegion)
+            int nodeCount)
         {
             Counts counts = default;
+            counts.Nodes = nodeCount;
             int3 dims = grid.Dimensions;
 
             for (int z = 0; z < dims.z; z++)
             for (int y = 0; y < dims.y; y++)
             for (int x = 0; x < dims.x; x++)
             {
-                int index = grid.VoxelIndex(new int3(x, y, z));
-                int region = regionIds[index];
-                if (region < 0) continue;
+                int3 voxel = new(x, y, z);
+                int index = grid.VoxelIndex(voxel);
+                int node = voxelNodes[index];
+                if (node < 0) continue;
 
-                int tile = grid.VoxelToTileIndex(new int3(x, y, z));
-                int slot = tile * regionCount + region;
-                if (nodeOfTileRegion[slot] < 0)
-                    nodeOfTileRegion[slot] = counts.Nodes++;
-
-                counts.Portals += CountPortalAt(grid, regionIds, x + 1, y, z, index, region, tile)
-                    + CountPortalAt(grid, regionIds, x, y + 1, z, index, region, tile)
-                    + CountPortalAt(grid, regionIds, x, y, z + 1, index, region, tile);
+                counts.Portals += CountPortalAt(grid, voxelNodes, regionIds, x + 1, y, z, index, node)
+                    + CountPortalAt(grid, voxelNodes, regionIds, x, y + 1, z, index, node)
+                    + CountPortalAt(grid, voxelNodes, regionIds, x, y, z + 1, index, node);
             }
 
             counts.EdgesBound = counts.Portals / 2;
@@ -63,26 +61,26 @@ namespace Ember.Navigation
         }
 
         /// <summary>
-        /// 填充簇图数组。阶段：①节点表 ②每节点门户计数 + 前缀和定 PortalStart
-        /// ③发射有向门户 ④无向边去重 ⑤边门户紧凑化（连续区间）。
+        /// 填充簇图数组。阶段：①节点表 ②每节点正 / 反向门户计数 + 前缀和
+        /// ③发射有向门户 ④无向边去重 ⑤边门户紧凑化。
         /// </summary>
         /// <param name="grid">网格。</param>
-        /// <param name="regionIds">每体素 region id。</param>
-        /// <param name="regionCount">区域数 R。</param>
-        /// <param name="nodeOfTileRegion">工作数组（复用 Count 的结果，不再清零）。</param>
-        /// <param name="nodePortalCounts">工作数组，长度 ≥ 2 × 节点数（正向 + 反向计数，随后前缀和 / 游标三用）。</param>
+        /// <param name="voxelNodes">每体素簇 id。</param>
+        /// <param name="regionIds">每体素全局区域 id。</param>
+        /// <param name="nodeCount">簇节点数。</param>
+        /// <param name="nodePortalCounts">工作数组，长度 ≥ 2 × 节点数。</param>
         /// <param name="nodes">输出节点数组。</param>
         /// <param name="portals">输出门户数组（按节点分组）。</param>
-        /// <param name="edges">输出边数组（长度 ≥ EdgesBound）。</param>
+        /// <param name="edges">输出边数组（长度 ≥ Counts.EdgesBound）。</param>
         /// <param name="edgeKeys">边去重工作数组，长度 ≥ EdgesBound。</param>
         /// <param name="edgePortalCounts">边去重工作数组，长度 ≥ EdgesBound。</param>
-        /// <param name="edgePortals">输出边门户紧凑数组（长度 = 有向门户数）。</param>
+        /// <param name="edgePortals">输出边门户紧凑数组（长度 ≥ 有向门户数 / 2）。</param>
         /// <returns>精确边数。</returns>
         public static int Build(
             in NavGrid grid,
+            int* voxelNodes,
             int* regionIds,
-            int regionCount,
-            int* nodeOfTileRegion,
+            int nodeCount,
             int* nodePortalCounts,
             NavClusterNode* nodes,
             NavPortal* portals,
@@ -93,55 +91,38 @@ namespace Ember.Navigation
         {
             int3 dims = grid.Dimensions;
 
-            // ① 节点表（顺序 = 首次发现顺序，与 Count 一致）。
-            int nodeCount = 0;
-            for (int z = 0; z < dims.z; z++)
-            for (int y = 0; y < dims.y; y++)
-            for (int x = 0; x < dims.x; x++)
+            // ① 节点表：TileIndex 以 -1 标记未填充；RegionId 取首个体素的全局区域。
+            for (int n = 0; n < nodeCount; n++)
             {
-                int index = grid.VoxelIndex(new int3(x, y, z));
-                int region = regionIds[index];
-                if (region < 0) continue;
-
-                int tile = grid.VoxelToTileIndex(new int3(x, y, z));
-                int slot = tile * regionCount + region;
-                if (nodeOfTileRegion[slot] == nodeCount)
-                {
-                    nodes[nodeCount] = new NavClusterNode
-                    {
-                        TileIndex = tile,
-                        RegionId = region,
-                    };
-                    nodeCount++;
-                }
+                nodes[n].TileIndex = -1;
+                nodes[n].RegionId = -1;
+                nodes[n].PortalStart = 0;
+                nodes[n].PortalCount = 0;
             }
 
-            // ② 每节点门户计数：正向（检测侧）与反向（邻侧）分别累计再合并 —
-            // 正向在 (tileA→tileB) 的检测侧记 1，反向给 tileB 侧记 1，
-            // 两侧配额各自独立，保证 Emit 不越界。→ 前缀和定 PortalStart。
-            int* forwardCounts = nodePortalCounts;          // [0, nodeCount)
-            int* reverseCounts = nodePortalCounts + nodeCount; // [nodeCount, 2*nodeCount)
+            // ② 正 / 反向门户计数（配额分离保证 Emit 不越界）。
+            int* forwardCounts = nodePortalCounts;
+            int* reverseCounts = nodePortalCounts + nodeCount;
             for (int n = 0; n < nodeCount * 2; n++) nodePortalCounts[n] = 0;
 
             for (int z = 0; z < dims.z; z++)
             for (int y = 0; y < dims.y; y++)
             for (int x = 0; x < dims.x; x++)
             {
-                int index = grid.VoxelIndex(new int3(x, y, z));
-                int region = regionIds[index];
-                if (region < 0) continue;
-
                 int3 voxel = new(x, y, z);
-                int tile = grid.VoxelToTileIndex(voxel);
-                int slot = tile * regionCount + region;
-                int node = nodeOfTileRegion[slot];
+                int index = grid.VoxelIndex(voxel);
+                int node = voxelNodes[index];
+                if (node < 0) continue;
 
-                CountPortalSides(grid, regionIds, nodeOfTileRegion, regionCount,
-                    x + 1, y, z, region, tile, node, forwardCounts, reverseCounts);
-                CountPortalSides(grid, regionIds, nodeOfTileRegion, regionCount,
-                    x, y + 1, z, region, tile, node, forwardCounts, reverseCounts);
-                CountPortalSides(grid, regionIds, nodeOfTileRegion, regionCount,
-                    x, y, z + 1, region, tile, node, forwardCounts, reverseCounts);
+                if (nodes[node].TileIndex < 0)
+                {
+                    nodes[node].TileIndex = grid.VoxelToTileIndex(voxel);
+                    nodes[node].RegionId = regionIds[index];
+                }
+
+                CountPortalSides(grid, voxelNodes, regionIds, x + 1, y, z, index, node, forwardCounts, reverseCounts);
+                CountPortalSides(grid, voxelNodes, regionIds, x, y + 1, z, index, node, forwardCounts, reverseCounts);
+                CountPortalSides(grid, voxelNodes, regionIds, x, y, z + 1, index, node, forwardCounts, reverseCounts);
             }
 
             int portalTotal = 0;
@@ -159,19 +140,12 @@ namespace Ember.Navigation
             for (int x = 0; x < dims.x; x++)
             {
                 int index = grid.VoxelIndex(new int3(x, y, z));
-                int region = regionIds[index];
-                if (region < 0) continue;
+                int node = voxelNodes[index];
+                if (node < 0) continue;
 
-                int3 voxel = new(x, y, z);
-                int tile = grid.VoxelToTileIndex(voxel);
-                int node = nodeOfTileRegion[tile * regionCount + region];
-
-                EmitPortal(grid, regionIds, nodeOfTileRegion, regionCount, nodePortalCounts,
-                    nodes, portals, x + 1, y, z, index, region, tile, node);
-                EmitPortal(grid, regionIds, nodeOfTileRegion, regionCount, nodePortalCounts,
-                    nodes, portals, x, y + 1, z, index, region, tile, node);
-                EmitPortal(grid, regionIds, nodeOfTileRegion, regionCount, nodePortalCounts,
-                    nodes, portals, x, y, z + 1, index, region, tile, node);
+                EmitPortal(grid, voxelNodes, regionIds, x + 1, y, z, index, node, nodePortalCounts, nodes, portals);
+                EmitPortal(grid, voxelNodes, regionIds, x, y + 1, z, index, node, nodePortalCounts, nodes, portals);
+                EmitPortal(grid, voxelNodes, regionIds, x, y, z + 1, index, node, nodePortalCounts, nodes, portals);
             }
 
             // ④ 无向边去重。
@@ -215,7 +189,8 @@ namespace Ember.Navigation
             {
                 edges[e].PortalStart = cursor;
                 int a = edges[e].ClusterA;
-                for (int p = 0; p < nodes[a].PortalCount && edgePortalCounts[e] > 0; p++)
+                int remaining = edgePortalCounts[e];
+                for (int p = 0; p < nodes[a].PortalCount && remaining > 0; p++)
                 {
                     ref readonly NavPortal portal = ref portals[nodes[a].PortalStart + p];
                     if (math.min(a, portal.OtherCluster) != edges[e].ClusterA
@@ -223,7 +198,7 @@ namespace Ember.Navigation
                         continue;
                     edgePortals[cursor++] = portal;
                     edges[e].PortalCount++;
-                    edgePortalCounts[e]--;
+                    remaining--;
                 }
                 edges[e].Weight = edges[e].PortalCount;
             }
@@ -233,61 +208,60 @@ namespace Ember.Navigation
 
         private static int CountPortalAt(
             in NavGrid grid,
+            int* voxelNodes,
             int* regionIds,
             int nx, int ny, int nz,
-            int index, int region, int tile)
+            int index, int node)
         {
             int3 n = new(nx, ny, nz);
             if (!grid.IsInside(n)) return 0;
             int neighbor = grid.VoxelIndex(n);
-            if (regionIds[neighbor] != region) return 0;
-            if (grid.VoxelToTileIndex(n) == tile) return 0;
-            // 同区域、跨 tile：双向各一条有向门户。
+            if (voxelNodes[neighbor] < 0) return 0;
+            if (voxelNodes[neighbor] == node) return 0;
+            if (regionIds[neighbor] != regionIds[index]) return 0;
+            if (grid.VoxelToTileIndex(n) == grid.VoxelToTileIndex(grid.VoxelCoord(index))) return 0;
+            // 同区域、跨 tile、不同局部簇：双向各一条有向门户。
             return 2;
         }
 
-        /// <summary>检测单方向跨界：正向配额记给检测侧节点，反向配额记给邻侧节点。</summary>
         private static void CountPortalSides(
             in NavGrid grid,
+            int* voxelNodes,
             int* regionIds,
-            int* nodeOfTileRegion,
-            int regionCount,
             int nx, int ny, int nz,
-            int region, int tile, int node,
+            int index, int node,
             int* forwardCounts,
             int* reverseCounts)
         {
             int3 n = new(nx, ny, nz);
             if (!grid.IsInside(n)) return;
             int neighbor = grid.VoxelIndex(n);
-            if (regionIds[neighbor] != region) return;
-            int neighborTile = grid.VoxelToTileIndex(n);
-            if (neighborTile == tile) return;
+            int neighborNode = voxelNodes[neighbor];
+            if (neighborNode < 0 || neighborNode == node) return;
+            if (regionIds[neighbor] != regionIds[index]) return;
+            if (grid.VoxelToTileIndex(n) == grid.VoxelToTileIndex(grid.VoxelCoord(index))) return;
 
-            int neighborNode = nodeOfTileRegion[neighborTile * regionCount + region];
             forwardCounts[node]++;
             reverseCounts[neighborNode]++;
         }
 
         private static void EmitPortal(
             in NavGrid grid,
+            int* voxelNodes,
             int* regionIds,
-            int* nodeOfTileRegion,
-            int regionCount,
+            int nx, int ny, int nz,
+            int index, int node,
             int* nodePortalCursors,
             NavClusterNode* nodes,
-            NavPortal* portals,
-            int nx, int ny, int nz,
-            int index, int region, int tile, int node)
+            NavPortal* portals)
         {
             int3 n = new(nx, ny, nz);
             if (!grid.IsInside(n)) return;
             int neighbor = grid.VoxelIndex(n);
-            if (regionIds[neighbor] != region) return;
-            int neighborTile = grid.VoxelToTileIndex(n);
-            if (neighborTile == tile) return;
-
-            int neighborNode = nodeOfTileRegion[neighborTile * regionCount + region];
+            int neighborNode = voxelNodes[neighbor];
+            if (neighborNode < 0 || neighborNode == node) return;
+            if (regionIds[neighbor] != regionIds[index]) return;
+            if (grid.VoxelToTileIndex(n) == grid.VoxelToTileIndex(grid.VoxelCoord(index))) return;
 
             AppendPortal(nodes, portals, nodePortalCursors, node, index, neighbor, neighborNode);
             AppendPortal(nodes, portals, nodePortalCursors, neighborNode, neighbor, index, node);
