@@ -4,6 +4,23 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.2.8] — 源码包形态下补两处 Editor 引用
+
+### Fixed
+
+- **`Ember.Navigation.Editor.asmdef` 补 `Ember.Collision.Runtime` 引用。**
+
+  编辑器程序集里的 `NavBakeWindow` 与 `NavAnnotationVolumeEditor` 都 `using Ember.Collision`，
+  而 asmdef 的 references 里没有它。DLL 时代编辑器程序集是预编译件、Collision 的符号烤在里面，
+  所以从未暴露；改为「仓库根即包根」、由 Unity 编译源码之后，缺引用直接报 `CS0234`。
+
+- **烘焙窗口跟随 Collision 1.0.0 的裸指针快照 API。**
+
+  Collision 1.0.0 把公开快照从 `NativeArray` 改为裸指针（`ConvertExistingDataToNativeArray`
+  造出的数组其 `m_Safety` 是 `default`，按值取出后索引会失败），`VertexPool` 随之拆成
+  `VertexPoolPtr`(`long`) + `VertexCount`(`int`)。那轮改动同步了 `NavRuntimeBake`，漏了
+  `NavBakeWindow`；源码包形态下编译报 `CS1061` 才暴露。
+
 ## [0.2.7] — 包仓库迁移到 ECS-Navigation.git
 
 ### Changed

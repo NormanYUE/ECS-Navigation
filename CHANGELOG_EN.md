@@ -4,6 +4,26 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.8] — Two Editor-side reference fixes for the source package
+
+### Fixed
+
+- **`Ember.Navigation.Editor.asmdef` now references `Ember.Collision.Runtime`.**
+
+  Both `NavBakeWindow` and `NavAnnotationVolumeEditor` in the editor assembly use `Ember.Collision`,
+  but the asmdef's references list did not include it. In the DLL era the editor assembly was a
+  precompiled binary with Collision's symbols baked in, so this never surfaced; once the repository
+  root became the UPM package root and Unity compiled the sources, the missing reference became a
+  hard `CS0234`.
+
+- **The bake window now follows Collision 1.0.0's raw-pointer snapshot API.**
+
+  Collision 1.0.0 changed public snapshots from `NativeArray` to raw pointers (an array built by
+  `ConvertExistingDataToNativeArray` has a `default` `m_Safety`, so indexing one taken by value
+  fails), splitting `VertexPool` into `VertexPoolPtr` (`long`) and `VertexCount` (`int`). That
+  change updated `NavRuntimeBake` but missed `NavBakeWindow`; the source-package layout surfaced it
+  as `CS1061` at compile time.
+
 ## [0.2.7] — Package repository moved to ECS-Navigation.git
 
 ### Changed
