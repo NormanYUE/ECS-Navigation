@@ -25,10 +25,16 @@ namespace Ember.Navigation
     {
         // ---- 代理快照（稠密，下标 = 串行侧遍历序）----
 
-        [ReadOnly] public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<float3> Velocities;
+        // 带 [NativeDisableParallelForRestriction] 的四个字段（本组三个 + 下面的 NeighborIndices）：
+        // IJobParallelFor 默认把每个 NativeArray 字段限制在 [index, index]，而本 Job 会按邻居下标
+        // 跨元素读（Positions[other] / Velocities[other] / Radii[other]、NeighborIndices[offset + i]），
+        // 不加就抛 "Index N is out of restricted IJobParallelFor range"。
+        // 其余字段只按 index 访问，或只经裸指针访问（裸指针不做范围检查），故不需要。
+
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<float3> Positions;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<float3> Velocities;
         [ReadOnly] public NativeArray<float3> Preferred;
-        [ReadOnly] public NativeArray<float> Radii;
+        [ReadOnly, NativeDisableParallelForRestriction] public NativeArray<float> Radii;
         [ReadOnly] public NativeArray<float> MaxSpeeds;
         [ReadOnly] public NativeArray<float> NeighborDists;
         [ReadOnly] public NativeArray<byte> Modes;
@@ -51,7 +57,8 @@ namespace Ember.Navigation
 
         // ---- 逐代理工作区（长度 = 代理数 × 容量）----
 
-        public NativeArray<int> NeighborIndices;
+        // 跨元素读，见上方说明。
+        [NativeDisableParallelForRestriction] public NativeArray<int> NeighborIndices;
         public NativeArray<float> NeighborDistances;
         public NativeArray<NavOrcaLine> Lines;
         public NativeArray<NavOrcaLine> Scratch;
