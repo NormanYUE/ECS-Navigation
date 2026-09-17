@@ -1,0 +1,24 @@
+{
+    "name": "Ember.Navigation.Editor",
+    "rootNamespace": "Ember.Navigation.Editor",
+    "references": [
+        "Ember.Runtime",
+        "Ember.Core.Runtime",
+        "Ember.Navigation.Runtime",
+        "Unity.Collections",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Ember.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

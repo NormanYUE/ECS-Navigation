@@ -1,0 +1,23 @@
+{
+    "name": "Ember.Navigation.Runtime",
+    "rootNamespace": "Ember.Navigation",
+    "references": [
+        "Ember.Runtime",
+        "Ember.Core.Runtime",
+        "Ember.Collision.Runtime",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Burst"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Ember.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

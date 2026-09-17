@@ -1,0 +1,29 @@
+{
+    "name": "Ember.Navigation.Tests",
+    "rootNamespace": "Ember.Navigation.Tests",
+    "references": [
+        "Ember.Navigation.Runtime",
+        "Ember.Runtime",
+        "Ember.Core.Runtime",
+        "Ember.Collision.Runtime",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Burst",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Ember.dll",
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

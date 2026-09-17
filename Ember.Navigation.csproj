@@ -11,8 +11,6 @@
         <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Framework</EmberFrameworkDir>
         <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
         <EmberGeneratorDll Condition="'$(EmberGeneratorDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/RoslynAnalyzers/Ember.Generator.dll</EmberGeneratorDll>
-        <EmberPackageDir Condition="'$(EmberPackageDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Navigation.Package</EmberPackageDir>
-        <EmberDeployPackageSources Condition="'$(EmberDeployPackageSources)' == ''">false</EmberDeployPackageSources>
         <!-- tests/ 是独立测试工程，必须从默认通配项整体排除：只写 Compile Remove 时，
              其文件仍留在 None 里并进入 CandidateAssemblyFiles，而 AssemblySearchPaths
              的顺序是 {CandidateAssemblyFiles};{HintPathFromItem}，于是 Reference 会命中
@@ -46,19 +44,18 @@
         <!-- 显式 Burst 策略（EmberJobCompilationMode.Burst）要求编译期可解析 Unity.Burst 类型，
              否则源生成器报 EMBER005。仅编译引用，运行时由 com.unity.burst 包提供。 -->
         <Reference Include="Unity.Burst">
-            <HintPath>$(MSBuildThisFileDirectory)libs/Unity.Burst.dll</HintPath>
+            <HintPath>$(MSBuildThisFileDirectory)Libs~/Unity.Burst.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Analyzer Include="$(EmberGeneratorDll)" />
     </ItemGroup>
 
-    <!-- 发布测试：把源码同步进公开包库（源码包形态，不再发 DLL）。
-         为什么是源码：预编译 DLL 里的 [BurstCompile] 不会被 Unity 的 Burst ILPP 处理，
-         Job 会退回托管路径；源码包由 Unity 编译才行。详见 CLAUDE.md「发布流程」。
+    <!-- 仓库根就是 UPM 包根，不再有「同步到另一个仓库」这一步；
+         但包内每个资源都必须有 .meta，否则 Unity 在不可变包目录里直接忽略它。
          工具本体在 Ember.Framework/tools/ 下。 -->
-    <Target Name="DeployPackageSources" AfterTargets="Build"
-            Condition="'$(EmberDeployPackageSources)' == 'true'">
-        <Exec Command="python3 &quot;$(EmberFrameworkDir)/tools/deploy-package-sources.py&quot; --source &quot;$(MSBuildThisFileDirectory).&quot; --package &quot;$(EmberPackageDir)&quot; --name com.ember.navigation --runtime-asmdef Ember.Navigation.Runtime --runtime-root-namespace Ember.Navigation --runtime-refs &quot;Ember.Runtime,Ember.Core.Runtime,Ember.Collision.Runtime,Unity.Collections,Unity.Mathematics,Unity.Burst&quot; --editor Editor --editor-asmdef Ember.Navigation.Editor --editor-root-namespace Ember.Navigation.Editor --editor-refs &quot;Ember.Runtime,Ember.Core.Runtime,Ember.Navigation.Runtime,Unity.Collections,Unity.Mathematics&quot;" />
+    <Target Name="StampPackageMetas" AfterTargets="Build"
+            Condition="'$(EmberStampPackageMetas)' == 'true'">
+        <Exec Command="python3 &quot;$(EmberFrameworkDir)/tools/stamp-package-metas.py&quot; --package &quot;$(MSBuildThisFileDirectory).&quot; --name com.ember.navigation" />
     </Target>
 
 </Project>
