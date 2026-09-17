@@ -27,19 +27,20 @@ namespace Ember.Navigation
         /// </summary>
         /// <param name="staticOnly">true 时只收静态碰撞体（运行时烘焙的常规用法）。</param>
         /// <returns>写入的碰撞体数量；超过 <paramref name="capacity"/> 时返回 -1。</returns>
-        public static int GatherColliders(
+        public static unsafe int GatherColliders(
             World world, bool staticOnly, NavBakeCollider* destination, int capacity)
         {
             if (!world.TryGetCollisionWorld(out CollisionWorldView view) || !view.IsQueryReady)
                 return -1;
 
-            NativeArray<BodyPose> poses = view.BodyPoses;
-            NativeArray<Collider> colliders = view.BodyColliders;
-            NativeArray<CollisionFilter> filters = view.BodyFilters;
-            NativeArray<byte> flags = view.BodyFlags;
+            var poses = (BodyPose*)view.BodyPosesPtr;
+            var colliders = (Collider*)view.BodyCollidersPtr;
+            var filters = (CollisionFilter*)view.BodyFiltersPtr;
+            var flags = (byte*)view.BodyFlagsPtr;
+            int bodyCount = view.BodyCount;
 
             int written = 0;
-            for (int i = 0; i < colliders.Length; i++)
+            for (int i = 0; i < bodyCount; i++)
             {
                 byte bodyFlags = flags[i];
                 if (staticOnly && (bodyFlags & CollisionBody.StaticBit) == 0) continue;

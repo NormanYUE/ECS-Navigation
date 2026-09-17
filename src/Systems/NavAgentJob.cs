@@ -96,12 +96,15 @@ namespace Ember.Navigation
                 GridSize,
                 GridOrigin,
                 CellSize,
-                (int*)CellStarts.GetUnsafePtr(),
-                (int*)CellCounts.GetUnsafePtr(),
-                (int*)SortedAgents.GetUnsafePtr(),
-                (float3*)Positions.GetUnsafePtr(),
-                (float*)Radii.GetUnsafePtr(),
-                (float*)NeighborDists.GetUnsafePtr(),
+                // 只读字段必须用 GetUnsafeReadOnlyPtr：GetUnsafePtr 会走 CheckWriteAndThrow，
+                // 而 Job 系统已把 [ReadOnly] 字段的句柄置为只读，Editor 下直接抛
+                // "has been declared as [ReadOnly] in the job, but you are writing to it"。
+                (int*)CellStarts.GetUnsafeReadOnlyPtr(),
+                (int*)CellCounts.GetUnsafeReadOnlyPtr(),
+                (int*)SortedAgents.GetUnsafeReadOnlyPtr(),
+                (float3*)Positions.GetUnsafeReadOnlyPtr(),
+                (float*)Radii.GetUnsafeReadOnlyPtr(),
+                (float*)NeighborDists.GetUnsafeReadOnlyPtr(),
                 index,
                 MaxNeighbors,
                 MaxRadius,

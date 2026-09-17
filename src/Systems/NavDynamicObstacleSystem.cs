@@ -40,7 +40,7 @@ namespace Ember.Navigation
             base.OnDestroy();
         }
 
-        protected override void OnTick(SystemContext ctx)
+        protected override unsafe void OnTick(SystemContext ctx)
         {
             World world = ctx.World;
             if (!world.TryGetNavWorld(out NavWorldView navView) || !navView.IsReady) return;
@@ -50,33 +50,32 @@ namespace Ember.Navigation
             NavWorld state = navView.StateSnapshot;
             if (state.DistanceBits != 8) return;
 
-            NativeArray<BodyPose> poses = collision.BodyPoses;
-            NativeArray<Collider> colliders = collision.BodyColliders;
-            NativeArray<byte> flags = collision.BodyFlags;
-            NativeArray<float3> vertexPool = collision.VertexPool;
+            var poses = (BodyPose*)collision.BodyPosesPtr;
+            var colliders = (Collider*)collision.BodyCollidersPtr;
+            var flags = (byte*)collision.BodyFlagsPtr;
+            var vertexPool = (float3*)collision.VertexPoolPtr;
+            int bodyCount = collision.BodyCount;
+            int vertexPoolCount = collision.VertexCount;
 
-            if (!TryCaptureSnapshot(poses, colliders, flags))
+            if (!TryCaptureSnapshot(poses, colliders, flags, bodyCount))
             {
                 // 快照规模变了（实体增删）：本轮不做增量，直接以新快照为准。
                 // 地图结构变动应由业务侧触发一次运行时烘焙。
                 return;
             }
 
-            unsafe
             {
                 byte* distance = (byte*)world.GetBuffer<byte>(state.Distance).UnsafePtr;
                 byte* occupancy = (byte*)world.GetBuffer<byte>(state.Occupancy).UnsafePtr;
-                float3* vertices = vertexPool.Length > 0
-                    ? (float3*)vertexPool.GetUnsafePtr()
-                    : null;
+                float3* vertices = vertexPoolCount > 0 ? vertexPool : null;
 
                 bool changed = false;
-                for (int i = 0; i < poses.Length; i++)
+                for (int i = 0; i < bodyCount; i++)
                 {
                     if ((flags[i] & CollisionBody.StaticBit) != 0) continue;
                     if (!Moved(i, poses[i])) continue;
 
-                    UpdateRegion(navView.Grid, state, poses, colliders, vertices, vertexPool.Length,
+                    UpdateRegion(navView.Grid, state, poses, colliders, bodyCount, vertices, vertexPoolCount,
                         i, m_PreviousPoses[i], distance, occupancy);
                     changed = true;
                 }
@@ -86,16 +85,14 @@ namespace Ember.Navigation
         }
 
         /// <summary>快照规模未变则记下新值并返回 true；规模变化时按新规模重建并返回 false。</summary>
-        private bool TryCaptureSnapshot(
-            NativeArray<BodyPose> poses, NativeArray<Collider> colliders, NativeArray<byte> flags)
+        private unsafe bool TryCaptureSnapshot(
+            BodyPose* poses, Collider* colliders, byte* flags, int count)
         {
-            if (m_PreviousCount == poses.Length
+            if (m_PreviousCount == count
                 && m_PreviousPoses.IsCreated
-                && m_PreviousPoses.Length == poses.Length)
+                && m_PreviousPoses.Length == count)
             {
-                NativeArray<BodyPose>.Copy(poses, m_PreviousPoses);
-                NativeArray<Collider>.Copy(colliders, m_PreviousColliders);
-                NativeArray<byte>.Copy(flags, m_PreviousFlags);
+                CopyIn(poses, colliders, flags, count);
                 return true;
             }
 
@@ -103,15 +100,22 @@ namespace Ember.Navigation
             Dispose(ref m_PreviousColliders);
             Dispose(ref m_PreviousFlags);
 
-            m_PreviousCount = poses.Length;
-            m_PreviousPoses = new NativeArray<BodyPose>(poses.Length, Allocator.Persistent);
-            m_PreviousColliders = new NativeArray<Collider>(poses.Length, Allocator.Persistent);
-            m_PreviousFlags = new NativeArray<byte>(poses.Length, Allocator.Persistent);
+            m_PreviousCount = count;
+            m_PreviousPoses = new NativeArray<BodyPose>(count, Allocator.Persistent);
+            m_PreviousColliders = new NativeArray<Collider>(count, Allocator.Persistent);
+            m_PreviousFlags = new NativeArray<byte>(count, Allocator.Persistent);
 
-            NativeArray<BodyPose>.Copy(poses, m_PreviousPoses);
-            NativeArray<Collider>.Copy(colliders, m_PreviousColliders);
-            NativeArray<byte>.Copy(flags, m_PreviousFlags);
+            CopyIn(poses, colliders, flags, count);
             return false;
+        }
+
+        /// <summary>把当帧碰撞世界快照拷进本地副本（源是 World buffer 的裸指针）。</summary>
+        private unsafe void CopyIn(BodyPose* poses, Collider* colliders, byte* flags, int count)
+        {
+            if (count <= 0) return;
+            UnsafeUtility.MemCpy(m_PreviousPoses.GetUnsafePtr(), poses, (long)count * sizeof(BodyPose));
+            UnsafeUtility.MemCpy(m_PreviousColliders.GetUnsafePtr(), colliders, (long)count * sizeof(Collider));
+            UnsafeUtility.MemCpy(m_PreviousFlags.GetUnsafePtr(), flags, count);
         }
 
         private bool Moved(int index, in BodyPose current) =>
@@ -126,8 +130,9 @@ namespace Ember.Navigation
         private static unsafe void UpdateRegion(
             in NavGrid grid,
             in NavWorld state,
-            NativeArray<BodyPose> poses,
-            NativeArray<Collider> colliders,
+            BodyPose* poses,
+            Collider* colliders,
+            int bodyCount,
             float3* vertices,
             int vertexPoolLength,
             int movedIndex,
@@ -161,7 +166,7 @@ namespace Ember.Navigation
                 float3 world = grid.VoxelToWorld(voxel);
 
                 float best = float.MaxValue;
-                for (int i = 0; i < colliders.Length; i++)
+                for (int i = 0; i < bodyCount; i++)
                 {
                     if (!Intersects(colliders[i], vertices, vertexPoolLength, poses[i], world, influence))
                         continue;
