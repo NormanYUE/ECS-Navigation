@@ -140,10 +140,9 @@ namespace Ember.Navigation
                     {
                         m_World.DestroyBuffer<T>(spare);
                     }
-                    target = m_World.CreateBuffer<T>((int)elementCount);
+                    target = m_World.CreateSizedBuffer<T>((int)elementCount);
                 }
 
-                m_World.ResizeBuffer<T>(target, (int)elementCount);
                 var span = m_World.GetBuffer<T>(target);
                 byte* source = NavBlobReader.Segment(blob, segment);
                 UnsafeUtility.MemCpy(span.UnsafePtr, source, elementCount * sizeof(T));
@@ -233,7 +232,9 @@ namespace Ember.Navigation
             }
 
             ReleaseFlowFields();
-            state.FlowSlots = m_World.CreateBuffer<NavFlowFieldSlot>(slotCount);
+            // 用 CreateSizedBuffer 而不是 CreateBuffer：后者只设容量、逻辑长度为 0，
+            // 而消费方是按槽位数取指针索引的。
+            state.FlowSlots = m_World.CreateSizedBuffer<NavFlowFieldSlot>(slotCount);
             state.FlowSlotCount = slotCount;
             state.FlowReady = 1;
         }
@@ -243,7 +244,9 @@ namespace Ember.Navigation
         {
             NavWorld state = State;
             if (state.FlowSlots.IsNull) return null;
-            return (NavFlowFieldSlot*)m_World.GetBuffer<NavFlowFieldSlot>(state.FlowSlots).UnsafePtr;
+            BufferSpan<NavFlowFieldSlot> span = m_World.GetBuffer<NavFlowFieldSlot>(state.FlowSlots);
+            if (span.Length < state.FlowSlotCount) return null;
+            return (NavFlowFieldSlot*)span.UnsafePtr;
         }
 
         /// <summary>释放单个槽位的场缓冲并清空记录。</summary>
@@ -286,9 +289,10 @@ namespace Ember.Navigation
             if (slot.Distances.IsNull || slot.VoxelCount != (int)voxelCount)
             {
                 ReleaseFlowSlot(ref slot);
-                slot.Distances = m_World.CreateBuffer<float>((int)voxelCount);
-                slot.HeapCosts = m_World.CreateBuffer<float>(HeapCapacity(voxelCount));
-                slot.HeapVoxels = m_World.CreateBuffer<int>(HeapCapacity(voxelCount));
+                // 同上：消费方按 voxelCount / HeapCapacity 取指针索引，长度必须一并设好。
+                slot.Distances = m_World.CreateSizedBuffer<float>((int)voxelCount);
+                slot.HeapCosts = m_World.CreateSizedBuffer<float>(HeapCapacity(voxelCount));
+                slot.HeapVoxels = m_World.CreateSizedBuffer<int>(HeapCapacity(voxelCount));
                 slot.VoxelCount = (int)voxelCount;
             }
 

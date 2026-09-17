@@ -214,7 +214,8 @@ namespace Ember.Navigation
                 return existing;
             }
 
-            BufferHandle created = world.CreateBuffer<float3>(math.max(required, 8));
+            // CreateSizedBuffer 建出来即有长度；与上面「复用」分支的 Resize 语义一致。
+            BufferHandle created = world.CreateSizedBuffer<float3>(math.max(required, 8));
             m_Paths.Add(entity, created);
             return created;
         }
