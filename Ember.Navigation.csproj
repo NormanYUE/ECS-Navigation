@@ -25,8 +25,8 @@
             <HintPath>$(EmberRuntimeDll)</HintPath>
         </Reference>
 
-        <!-- Ember.Core / Ember.Collision 改为源码工程引用：两者都已改源码包发布，
-             包库不再产出 DLL，再引包库路径就断了。源码形态下 Unity 侧同样是源码编译在一起。 -->
+        <!-- Ember.Core / Ember.Collision 用源码工程引用：三者在同一套源码里，Unity 侧
+             同样是源码编译在一起。不要退回引某个包库的 DLL —— 派生模块已经没有独立包库了。 -->
         <ProjectReference Include="..\Ember.Core\Ember.Core.csproj" />
         <ProjectReference Include="..\Ember.Collision\Ember.Collision.csproj" />
         <Reference Include="UnityEngine.CoreModule">
