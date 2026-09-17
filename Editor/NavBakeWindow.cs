@@ -92,13 +92,15 @@ namespace Ember.Navigation.Editor
             }
 
             // 顶点池直接借用碰撞快照的视图（多边形顶点在碰撞模块维护）。
+            // Collision 1.0.0 起公开快照一律改为裸指针（NativeArray 的 m_Safety 是 default，
+            // 按值取出来索引会失败），长度由配套的 VertexCount 给出。
             float3* vertexPool = null;
             int vertexPoolLength = 0;
             if (manager.World.TryGetCollisionWorld(out CollisionWorldView collision)
-                && collision.IsQueryReady && collision.VertexPool.Length > 0)
+                && collision.IsQueryReady && collision.VertexCount > 0)
             {
-                vertexPool = (float3*)collision.VertexPool.GetUnsafePtr();
-                vertexPoolLength = collision.VertexPool.Length;
+                vertexPool = (float3*)collision.VertexPoolPtr;
+                vertexPoolLength = collision.VertexCount;
             }
 
             // 标注体从场景收集：它们是烘焙期输入，烘完固化进距离场与代价层。

@@ -4,6 +4,7 @@
     "references": [
         "Ember.Runtime",
         "Ember.Core.Runtime",
+        "Ember.Collision.Runtime",
         "Ember.Navigation.Runtime",
         "Unity.Collections",
         "Unity.Mathematics"
