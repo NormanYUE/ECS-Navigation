@@ -1,6 +1,6 @@
 {
   "name": "com.ember.navigation",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "displayName": "Ember Navigation",
   "unity": "2022.3",
   "description": "Navigation package for the Ember ECS framework: navmesh baking and runtime pathfinding built on Ember job scheduling and Burst.",
@@ -21,8 +21,8 @@
   },
   "dependencies": {
     "com.ember.ecs": "1.13.0",
-    "com.ember.core": "2.1.3",
-    "com.ember.collision": "1.0.3",
+    "com.ember.core": "2.1.4",
+    "com.ember.collision": "1.0.4",
     "com.unity.mathematics": "1.3.2",
     "com.unity.burst": "1.8.13",
     "com.unity.collections": "2.4.3"

@@ -4,6 +4,38 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.2.7] — 包仓库迁移到 ECS-Navigation.git
+
+### Changed
+
+- **包仓库由 `Ember-Navigation.git` 迁到 `ECS-Navigation.git`，仓库根即 UPM 包根。**
+
+  源码库与包库合并成一个仓库：源码库转公开直接当 UPM 包，独立的 DLL/源码副本包库删除。
+  从此一份代码一条历史，不再有「同步到另一个仓库」这一步，也没有副本漂移的可能。
+
+  布局按 Unity 包约定整理：
+
+  | 旧 | 新 | 说明 |
+  | --- | --- | --- |
+  | `src/` | `Runtime/` | 配 `Ember.Navigation.Runtime.asmdef` |
+  | `libs/` | `Libs~/` | `~` 后缀让 Unity 忽略；否则 `Unity.Burst.dll` 会被当包内插件导入，与 `com.unity.burst` 撞名 |
+  | `tests/` | `tests/`（加 asmdef） | `defineConstraints = UNITY_INCLUDE_TESTS`，否则测试代码会被编进包 |
+  | 包库的 `package.json` / README / CHANGELOG / LICENSE | 仓库根 | — |
+
+  包内每个资源都补了 `.meta`。Unity 对不可变包目录里没有 `.meta` 的资源**直接忽略**，
+  只丢一条警告 —— 源码包资源上百个，漏一个就少一个文件。
+
+  **消费方需改 manifest URL**：
+
+  ```
+  - https://github.com/NormanYUE/Ember-Navigation.git
+  + https://github.com/NormanYUE/ECS-Navigation.git
+  ```
+
+  改完要删掉 `Library/PackageCache`，否则 UPM 不会重新解析。
+
+- 依赖提升：com.ember.ecs 1.13.0、com.ember.core 2.1.4、com.ember.collision 1.0.4
+
 ## [0.2.6] — 改为源码包发布（不再发预编译 DLL）
 
 ### Changed

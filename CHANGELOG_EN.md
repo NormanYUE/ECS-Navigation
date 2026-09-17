@@ -4,6 +4,41 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.7] — Package repository moved to ECS-Navigation.git
+
+### Changed
+
+- **The package repository moved from `Ember-Navigation.git` to `ECS-Navigation.git`, and the repository
+  root is now the UPM package root.**
+
+  The source repository and the package repository merged into one: the source repository went
+  public and is now itself the UPM package, while the separate package repository was deleted.
+  One codebase, one history — no sync step, no chance of the copy drifting.
+
+  The layout follows Unity's package conventions:
+
+  | Before | After | Why |
+  | --- | --- | --- |
+  | `src/` | `Runtime/` | pairs with `Ember.Navigation.Runtime.asmdef` |
+  | `libs/` | `Libs~/` | the `~` suffix makes Unity ignore it; otherwise `Unity.Burst.dll` is imported as a package plugin and collides with `com.unity.burst` |
+  | `tests/` | `tests/` (now with an asmdef) | `defineConstraints = UNITY_INCLUDE_TESTS`, otherwise the tests get compiled into the package |
+  | the package repo's `package.json` / README / CHANGELOG / LICENSE | repository root | — |
+
+  Every asset now has a `.meta`. Unity **silently ignores** assets without one inside an immutable
+  package folder, emitting only a console warning — a source package has hundreds of assets, and
+  each missing `.meta` is a missing file.
+
+  **Consumers must update their manifest URL**:
+
+  ```
+  - https://github.com/NormanYUE/Ember-Navigation.git
+  + https://github.com/NormanYUE/ECS-Navigation.git
+  ```
+
+  Delete `Library/PackageCache` afterwards, or UPM will not re-resolve.
+
+- Dependencies raised: com.ember.ecs 1.13.0, com.ember.core 2.1.4, com.ember.collision 1.0.4
+
 ## [0.2.6] — Ships as a source package (no more precompiled DLL)
 
 ### Changed
