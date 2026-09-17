@@ -10,11 +10,9 @@
         <AssemblyName>Ember.Navigation</AssemblyName>
         <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Framework</EmberFrameworkDir>
         <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
-        <EmberCoreDll Condition="'$(EmberCoreDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Core.Package/Runtime/Ember.Core.dll</EmberCoreDll>
-        <EmberCollisionDll Condition="'$(EmberCollisionDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Collision.Package/Runtime/Ember.Collision.dll</EmberCollisionDll>
         <EmberGeneratorDll Condition="'$(EmberGeneratorDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/RoslynAnalyzers/Ember.Generator.dll</EmberGeneratorDll>
         <EmberPackageDir Condition="'$(EmberPackageDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Navigation.Package</EmberPackageDir>
-        <EmberDeployPackageBinaries Condition="'$(EmberDeployPackageBinaries)' == ''">false</EmberDeployPackageBinaries>
+        <EmberDeployPackageSources Condition="'$(EmberDeployPackageSources)' == ''">false</EmberDeployPackageSources>
         <!-- tests/ 是独立测试工程，必须从默认通配项整体排除：只写 Compile Remove 时，
              其文件仍留在 None 里并进入 CandidateAssemblyFiles，而 AssemblySearchPaths
              的顺序是 {CandidateAssemblyFiles};{HintPathFromItem}，于是 Reference 会命中
@@ -23,17 +21,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- 三个上游均以发布件引用；上游更新后先发布其包库，再重构建本模块。
-             需要 Ember ≥ 1.11.0（ResizeBuffer）与 Ember.Collision ≥ 0.3.0（ShapeQuery 最近点 / 射线查询、body 快照）。 -->
+        <!-- Ember（框架）仍以发布件引用 —— 框架保持 DLL 包，不随本次改动。
+             但需要 Ember ≥ 1.13.0（CreateSizedBuffer）。 -->
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
         </Reference>
-        <Reference Include="Ember.Core">
-            <HintPath>$(EmberCoreDll)</HintPath>
-        </Reference>
-        <Reference Include="Ember.Collision">
-            <HintPath>$(EmberCollisionDll)</HintPath>
-        </Reference>
+
+        <!-- Ember.Core / Ember.Collision 改为源码工程引用：两者都已改源码包发布，
+             包库不再产出 DLL，再引包库路径就断了。源码形态下 Unity 侧同样是源码编译在一起。 -->
+        <ProjectReference Include="..\Ember.Core\Ember.Core.csproj" />
+        <ProjectReference Include="..\Ember.Collision\Ember.Collision.csproj" />
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>$(EmberFrameworkDir)/libs/UnityEngine.CoreModule.dll</HintPath>
             <Private>false</Private>
@@ -55,12 +52,13 @@
         <Analyzer Include="$(EmberGeneratorDll)" />
     </ItemGroup>
 
-    <Target Name="DeployPackageDlls" AfterTargets="Build"
-            Condition="'$(EmberDeployPackageBinaries)' == 'true'">
-        <MakeDir Directories="$(EmberPackageDir)/Runtime"/>
-        <Copy SourceFiles="$(TargetPath)"
-              DestinationFiles="$(EmberPackageDir)/Runtime/Ember.Navigation.dll"
-              SkipUnchangedFiles="true" />
+    <!-- 发布测试：把源码同步进公开包库（源码包形态，不再发 DLL）。
+         为什么是源码：预编译 DLL 里的 [BurstCompile] 不会被 Unity 的 Burst ILPP 处理，
+         Job 会退回托管路径；源码包由 Unity 编译才行。详见 CLAUDE.md「发布流程」。
+         工具本体在 Ember.Framework/tools/ 下。 -->
+    <Target Name="DeployPackageSources" AfterTargets="Build"
+            Condition="'$(EmberDeployPackageSources)' == 'true'">
+        <Exec Command="python3 &quot;$(EmberFrameworkDir)/tools/deploy-package-sources.py&quot; --source &quot;$(MSBuildThisFileDirectory).&quot; --package &quot;$(EmberPackageDir)&quot; --name com.ember.navigation --runtime-asmdef Ember.Navigation.Runtime --runtime-root-namespace Ember.Navigation --runtime-refs &quot;Ember.Runtime,Ember.Core.Runtime,Ember.Collision.Runtime,Unity.Collections,Unity.Mathematics,Unity.Burst&quot; --editor Editor --editor-asmdef Ember.Navigation.Editor --editor-root-namespace Ember.Navigation.Editor --editor-refs &quot;Ember.Runtime,Ember.Core.Runtime,Ember.Navigation.Runtime,Unity.Collections,Unity.Mathematics&quot;" />
     </Target>
 
 </Project>
