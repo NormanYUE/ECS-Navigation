@@ -19,12 +19,19 @@ namespace Ember.Navigation
     /// </summary>
     public sealed class NavFlowFieldSystem : SystemBase
     {
-        private readonly EntityQuery m_Query = new(
-            new ComponentMask().With<NavRequest>().With<LocalTransform>(),
-            ComponentMask.Empty,
-            new ComponentMask().With<Static>().With<Disabled>());
+        // 查询在 OnCreate 构造，不用字段初始化器：系统由 SystemTicker.Register 立即构造，
+        // 早于 ECSManager.Start()、早于 World 构造，而 ComponentMask.With<T>() 会当场读组件注册表。
+        private EntityQuery m_Query;
 
         private int m_Frame;
+
+        public override void OnCreate()
+        {
+            m_Query = new EntityQuery(
+                new ComponentMask().With<NavRequest>().With<LocalTransform>(),
+                ComponentMask.Empty,
+                new ComponentMask().With<Static>().With<Disabled>());
+        }
 
         protected override void DeclareAccess(AccessBuilder access) => access
             .Read<NavRequest>()

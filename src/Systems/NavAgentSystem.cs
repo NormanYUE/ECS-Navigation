@@ -22,14 +22,21 @@ namespace Ember.Navigation
     {
         private const int BlockSize = 64;
 
-        private readonly EntityQuery m_Query = new(
-            new ComponentMask()
-                .With<LocalTransform>()
-                .With<LinearVelocity>()
-                .With<NavAgent>()
-                .With<NavDesiredVelocity>(),
-            ComponentMask.Empty,
-            new ComponentMask().With<Static>().With<Disabled>());
+        // 查询在 OnCreate 构造，不用字段初始化器：系统由 SystemTicker.Register 立即构造，
+        // 早于 ECSManager.Start()、早于 World 构造，而 ComponentMask.With<T>() 会当场读组件注册表。
+        private EntityQuery m_Query;
+
+        public override void OnCreate()
+        {
+            m_Query = new EntityQuery(
+                new ComponentMask()
+                    .With<LocalTransform>()
+                    .With<LinearVelocity>()
+                    .With<NavAgent>()
+                    .With<NavDesiredVelocity>(),
+                ComponentMask.Empty,
+                new ComponentMask().With<Static>().With<Disabled>());
+        }
 
         // ---- 代理快照 ----
         private NativeArray<float3> m_Positions;

@@ -23,10 +23,17 @@ namespace Ember.Navigation
     /// </summary>
     public sealed class NavRequestSystem : SystemBase
     {
-        private readonly EntityQuery m_Query = new(
-            new ComponentMask().With<NavRequest>().With<NavAgent>().With<LocalTransform>(),
-            ComponentMask.Empty,
-            new ComponentMask().With<Static>().With<Disabled>());
+        // 查询在 OnCreate 构造，不用字段初始化器：系统由 SystemTicker.Register 立即构造，
+        // 早于 ECSManager.Start()、早于 World 构造，而 ComponentMask.With<T>() 会当场读组件注册表。
+        private EntityQuery m_Query;
+
+        public override void OnCreate()
+        {
+            m_Query = new EntityQuery(
+                new ComponentMask().With<NavRequest>().With<NavAgent>().With<LocalTransform>(),
+                ComponentMask.Empty,
+                new ComponentMask().With<Static>().With<Disabled>());
+        }
 
         /// <summary>按优先级倒序排列的请求下标（引用稠密收集序）。</summary>
         private NativeList<int> m_Order;

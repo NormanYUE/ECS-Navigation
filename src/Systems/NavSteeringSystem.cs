@@ -18,14 +18,21 @@ namespace Ember.Navigation
     /// </summary>
     public sealed class NavSteeringSystem : SystemBase
     {
-        private readonly EntityQuery m_Query = new(
-            new ComponentMask()
-                .With<LocalTransform>()
-                .With<NavAgent>()
-                .With<NavPathState>()
-                .With<NavDesiredVelocity>(),
-            ComponentMask.Empty,
-            new ComponentMask().With<Static>().With<Disabled>());
+        // 查询在 OnCreate 构造，不用字段初始化器：系统由 SystemTicker.Register 立即构造，
+        // 早于 ECSManager.Start()、早于 World 构造，而 ComponentMask.With<T>() 会当场读组件注册表。
+        private EntityQuery m_Query;
+
+        public override void OnCreate()
+        {
+            m_Query = new EntityQuery(
+                new ComponentMask()
+                    .With<LocalTransform>()
+                    .With<NavAgent>()
+                    .With<NavPathState>()
+                    .With<NavDesiredVelocity>(),
+                ComponentMask.Empty,
+                new ComponentMask().With<Static>().With<Disabled>());
+        }
 
         /// <summary>稠密代理数组（跨帧复用，增长才分配）。</summary>
         private NativeList<NavSteeringAgent> m_Agents;

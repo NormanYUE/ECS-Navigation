@@ -28,14 +28,21 @@ namespace Ember.Navigation
         /// <summary>时间预算换算：毫秒 → Stopwatch 计时单位。</summary>
         private static readonly long TicksPerMillisecond = Stopwatch.Frequency / 1000;
 
-        private readonly EntityQuery m_Query = new(
-            new ComponentMask()
-                .With<NavRequest>()
-                .With<NavAgent>()
-                .With<LocalTransform>()
-                .With<NavPathState>(),
-            ComponentMask.Empty,
-            new ComponentMask().With<Static>().With<Disabled>());
+        // 查询在 OnCreate 构造，不用字段初始化器：系统由 SystemTicker.Register 立即构造，
+        // 早于 ECSManager.Start()、早于 World 构造，而 ComponentMask.With<T>() 会当场读组件注册表。
+        private EntityQuery m_Query;
+
+        public override void OnCreate()
+        {
+            m_Query = new EntityQuery(
+                new ComponentMask()
+                    .With<NavRequest>()
+                    .With<NavAgent>()
+                    .With<LocalTransform>()
+                    .With<NavPathState>(),
+                ComponentMask.Empty,
+                new ComponentMask().With<Static>().With<Disabled>());
+        }
 
         private readonly NavPathWorkspace m_Workspace = new();
         private NativeParallelHashMap<Entity, BufferHandle> m_Paths;
