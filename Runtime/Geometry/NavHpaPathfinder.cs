@@ -44,6 +44,9 @@ namespace Ember.Navigation
 
             /// <summary>输出容量不足。</summary>
             CapacityExceeded = 7,
+
+            /// <summary>全图回退搜索成功（HPA* 失败后由 <see cref="FindPathExhaustive"/> 找到）。</summary>
+            FallbackSuccess = 9,
         }
 
         /// <summary>最近一次 <see cref="FindPath"/> 的状态。</summary>
@@ -240,6 +243,45 @@ namespace Ember.Navigation
 
             LastStatus = PathStatus.Success;
             return written;
+        }
+
+        /// <summary>
+        /// 全图 A*（不用簇图）。HPA* 失败后的完备性回退。
+        ///
+        /// <b>为什么需要</b>：簇图与门户是烘焙期按无边界的可走性建出来的，不带代理半径；
+        /// 而请求搜索按 <see cref="Context.RequiredLevel"/> 过滤体素。于是存在这样的局面 ——
+        /// 全图 A* 有解（连通性与净空都够），HPA* 却因为必须穿过某个净空不足的门户
+        /// 而 <see cref="PathStatus.SegmentSearchFailed"/>。实测一个 50 人的编队里
+        /// 有 39 个请求卡在这里，表现就是「单位走到某格后集体站死」。
+        ///
+        /// HPA* 的定位本来就是加速，那么失败时退回全图搜索、把完备性补回来，
+        /// 比在烘焙期把半径耦合进门户数据结构更小、更不容易出错。
+        /// 代价：只有失败请求才会付这一次全图搜索。
+        /// </summary>
+        public static int FindPathExhaustive(ref Context ctx, int3 start, int3 goal,
+            int3* output, int capacity)
+        {
+            var astar = ctx.AStar;
+            astar.RestrictNode = -1;
+            astar.Goal = goal;
+            ctx.AStar = astar;
+
+            NavAStar.Reset(ref ctx.AStar, ctx.Grid.VoxelCount);
+            if (!NavAStar.Begin(ref ctx.AStar, start))
+            {
+                LastStatus = PathStatus.SegmentBeginFailed;
+                return -1;
+            }
+
+            if (!NavAStar.RunToCompletion(ref ctx.AStar))
+            {
+                LastStatus = PathStatus.SegmentSearchFailed;
+                return -1;
+            }
+
+            int extracted = NavAStar.ExtractPath(ref ctx.AStar, start, goal, output, capacity);
+            LastStatus = extracted < 0 ? PathStatus.CapacityExceeded : PathStatus.FallbackSuccess;
+            return extracted;
         }
 
         private static int RunSegment(ref Context ctx, int3 from, int3 to, int node,
