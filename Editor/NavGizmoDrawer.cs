@@ -86,7 +86,7 @@ namespace Ember.Navigation.Editor
             {
                 var voxel = new int3(x, y, z);
                 float3 center = grid.VoxelToWorld(voxel);
-                SetQuad(center, half);
+                SetQuad(center, half, PlaneZ(nav, center.z));
 
                 if (byRegion) {
                     Handles.DrawSolidRectangleWithOutline(s_Quad, RegionColor(nav.RegionAt(voxel)), Color.clear);
@@ -101,13 +101,17 @@ namespace Ember.Navigation.Editor
             }
         }
 
+        /// <summary>2D 网格（只有一层体素）统一画到设定平面上，避免与游戏平面错开。</summary>
+        private static float PlaneZ(in NavWorldView nav, float gridZ) =>
+            nav.Grid.Dimensions.z == 1 ? NavDebugSettings.DrawPlaneZ : gridZ;
+
         /// <summary>把复用缓冲铺成体素中心的 XY 平面方格。</summary>
-        private static void SetQuad(float3 center, float half)
+        private static void SetQuad(float3 center, float half, float planeZ)
         {
-            s_Quad[0] = new Vector3(center.x - half, center.y - half, center.z);
-            s_Quad[1] = new Vector3(center.x - half, center.y + half, center.z);
-            s_Quad[2] = new Vector3(center.x + half, center.y + half, center.z);
-            s_Quad[3] = new Vector3(center.x + half, center.y - half, center.z);
+            s_Quad[0] = new Vector3(center.x - half, center.y - half, planeZ);
+            s_Quad[1] = new Vector3(center.x - half, center.y + half, planeZ);
+            s_Quad[2] = new Vector3(center.x + half, center.y + half, planeZ);
+            s_Quad[3] = new Vector3(center.x + half, center.y - half, planeZ);
         }
 
         /// <summary>按连通区域上色。区域 id 是烘焙期分配的稠密下标，取模到固定调色板即可区分。</summary>
@@ -152,7 +156,7 @@ namespace Ember.Navigation.Editor
                 for (int row = 0; row < chunk.Count && drawn < limit; row++)
                 {
                     float3 position = transforms.At(row).Position;
-                    var origin = new Vector3(position.x, position.y, position.z);
+                    var origin = new Vector3(position.x, position.y, PlaneZ(nav, position.z));
 
                     // 半径：导航判定的代理半径，不是碰撞形状的外接圆。
                     Handles.color = RadiusColor;
@@ -193,11 +197,12 @@ namespace Ember.Navigation.Editor
 
                     // 目标点：无论有没有路径都画 —— 目标落在墙里正是最常见的失败原因。
                     Handles.color = TargetColor;
-                    var target = new Vector3(request.Target.x, request.Target.y, request.Target.z);
+                    var target = new Vector3(request.Target.x, request.Target.y,
+                        PlaneZ(nav, request.Target.z));
                     Handles.SphereHandleCap(0, target, Quaternion.identity, 0.25f, EventType.Repaint);
 
                     if (path.WaypointCount > 0 && path.Generation == nav.Generation) {
-                        DrawWaypoints(world, transforms.At(row).Position, path);
+                        DrawWaypoints(world, nav, transforms.At(row).Position, path);
                     }
 
                     drawn++;
@@ -205,7 +210,7 @@ namespace Ember.Navigation.Editor
             }
         }
 
-        private static void DrawWaypoints(World world, float3 position, in NavPathState path)
+        private static void DrawWaypoints(World world, in NavWorldView nav, float3 position, in NavPathState path)
         {
             BufferSpan<float3> waypoints = world.GetBuffer<float3>(path.Waypoints);
 
@@ -214,12 +219,12 @@ namespace Ember.Navigation.Editor
 
             Handles.color = PathColor;
             int start = math.clamp(path.CurrentIndex, 0, path.WaypointCount - 1);
-            var previous = new Vector3(position.x, position.y, position.z);
+            var previous = new Vector3(position.x, position.y, PlaneZ(nav, position.z));
 
             for (int i = start; i < path.WaypointCount; i++)
             {
                 float3 waypoint = waypoints[i];
-                var current = new Vector3(waypoint.x, waypoint.y, waypoint.z);
+                var current = new Vector3(waypoint.x, waypoint.y, PlaneZ(nav, waypoint.z));
                 Handles.DrawLine(previous, current);
                 previous = current;
             }

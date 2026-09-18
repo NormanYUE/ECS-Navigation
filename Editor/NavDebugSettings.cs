@@ -33,6 +33,18 @@ namespace Ember.Navigation.Editor
             set { EditorPrefs.SetInt(Prefix + "AgentLimit", Mathf.Max(1, value)); Repaint(); }
         }
 
+        /// <summary>
+        /// 2D 网格的绘制平面 Z。导航网格的<b>烘焙平面</b>未必等于游戏平面 ——
+        /// 本工程烘焙落在 z ≈ -3.75（网格原点 z = -4），而道路摆在 z = 0；
+        /// 透视视角下按烘焙平面画会整体偏移，看起来「像路但偏了一大截」。
+        /// 因此 2D 网格（Dimensions.z == 1）一律按本值绘制。
+        /// </summary>
+        public static float DrawPlaneZ
+        {
+            get => EditorPrefs.GetFloat(Prefix + "PlaneZ", 0f);
+            set { EditorPrefs.SetFloat(Prefix + "PlaneZ", value); Repaint(); }
+        }
+
         /// <summary>体素网格：占据 / 可行走 / 距离不足三态。</summary>
         public static bool DrawMesh
         {
