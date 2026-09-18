@@ -4,6 +4,30 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.11] — Fall back to a full-grid A* when HPA* fails
+
+### Fixed
+
+- **When HPA* had no solution but a full-grid search did, the request was marked `Failed`
+  (never retried) and agents froze en masse at some cell.**
+
+  The cluster graph and its portals are built at bake time from a **radius-free** walkability test,
+  while request searches filter voxels by `Context.RequiredLevel` (derived from `NavAgent.Radius`).
+  That leaves a gap: a full-grid A* has a solution — connectivity and clearance are both
+  sufficient — but HPA* must cross a portal whose clearance is too tight, so the in-cluster search
+  exhausts and returns `SegmentSearchFailed`.
+
+  Measured: a 50-unit formation advancing to cell 10 had all 50 requests `Failed`; after re-arming
+  them to `Pending`, 11 succeeded and **39 failed again** — while a union-find over the same
+  clearance rule proved a route with 0.753 m of clearance exists between those endpoints
+  (0.5 required).
+
+  HPA* exists to be fast, so on failure the search now falls back to a full-grid A*
+  (`FindPathExhaustive`, `RestrictNode = -1`), restoring completeness. That is smaller and less
+  error-prone than coupling the agent radius into the bake-time portal structures. Only failed
+  requests pay for the extra search. `PathStatus.FallbackSuccess` distinguishes a fallback hit from
+  a direct HPA* hit.
+
 ## [0.2.10] — Binary walkable/blocked coloring for the voxel grid
 
 ### Changed

@@ -4,6 +4,26 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.2.11] — HPA* 失败后回退全图 A*
+
+### Fixed
+
+- **HPA* 无解而全图有解时，请求被判 `Failed`（且不再重试），单位走到某格后集体站死。**
+
+  簇图与门户是烘焙期按**无半径边界**的可走性建出来的，而请求搜索按
+  `Context.RequiredLevel`（由 `NavAgent.Radius` 换算）过滤体素。于是存在这种局面：
+  全图 A* 有解 —— 连通与净空都够 —— 但 HPA* 必须穿过某个净空不足的门户，
+  簇内搜索穷尽后返回 `SegmentSearchFailed`。
+
+  实测：一个 50 人编队推进到第 10 格时 50 条请求全部 `Failed`；重新置 `Pending` 后
+  11 条成功、**39 条仍然失败**，而按同一净空口径做的并查集证明这些起终点之间
+  存在净空 0.753 米的通路（要求 0.5）。
+
+  HPA* 的定位是加速，因此失败时回退一次全图 A*（`FindPathExhaustive`，
+  `RestrictNode = -1`）把完备性补回来 —— 比把代理半径耦合进烘焙期的门户数据结构
+  更小、也不易出错。只有失败请求才会付这一次全图搜索。新增 `PathStatus.FallbackSuccess`
+  用于区分「HPA* 直达」与「回退成功」。
+
 ## [0.2.10] — 网格改为可走/不可走二元配色
 
 ### Changed

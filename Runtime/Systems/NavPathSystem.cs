@@ -153,6 +153,12 @@ namespace Ember.Navigation
                 raw = NavHpaPathfinder.FindPath(ref context, start, goal,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
 
+            // HPA* 失败不等于无解：簇图的门户是烘焙期按无边界的可走性建的，
+            // 按代理半径过滤后可能过不去，而全图仍有路。回退一次全图搜索补完备性。
+            if (raw <= 0)
+                raw = NavHpaPathfinder.FindPathExhaustive(ref context, start, goal,
+                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
+
             int smoothed = raw > 0
                 ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, requiredLevel,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), raw,
