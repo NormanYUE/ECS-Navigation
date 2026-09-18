@@ -160,8 +160,14 @@ namespace Ember.Navigation
                 raw = NavHpaPathfinder.FindPathExhaustive(ref context, start, goal,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
 
+            // 平滑另用一份更严的净空：路径贴着墙走会出事 —— 距离场是量化的，
+            // 梯度在相邻体素之间会翻向，ORCA 的静态障碍约束随之来回翻，
+            // 代理表现为在墙边前进/后退反复。搜索仍用原半径的等级，
+            // 否则本来就窄的通道会直接搜不到路。
+            int smoothLevel = RequiredLevel(state, agents.At(row).Radius * SmoothClearanceFactor);
+
             int smoothed = raw > 0
-                ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, requiredLevel,
+                ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, smoothLevel,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), raw,
                     (int3*)m_Workspace.SmoothWaypoints.GetUnsafePtr(), m_Workspace.SmoothWaypoints.Length)
                 : -1;
@@ -219,6 +225,12 @@ namespace Ember.Navigation
 
             return -1;
         }
+
+        /// <summary>
+        /// 平滑时的净空余量倍率。搜索（A*）按代理半径本身过滤，平滑按半径 × 本值，
+        /// 于是路径不会贴到「刚好可走」的临界线上。
+        /// </summary>
+        private const float SmoothClearanceFactor = 1.6f;
 
         /// <summary>把代理半径换算成距离场的量化等级（与 <c>NavWorldView.IsWalkable</c> 同口径）。</summary>
         private static int RequiredLevel(in NavWorld state, float radius)
