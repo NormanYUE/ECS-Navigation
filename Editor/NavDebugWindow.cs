@@ -48,9 +48,9 @@ namespace Ember.Navigation.Editor
         {
             EditorGUILayout.LabelField("图层", EditorStyles.boldLabel);
             NavDebugSettings.DrawMesh = EditorGUILayout.ToggleLeft(
-                "体素网格（占据 / 可行走 / 距离不足）", NavDebugSettings.DrawMesh);
+                "体素网格（绿色空心 = 可走 / 红色实心 = 不可走）", NavDebugSettings.DrawMesh);
             NavDebugSettings.DrawRegions = EditorGUILayout.ToggleLeft(
-                "按连通区域着色（覆盖三态配色）", NavDebugSettings.DrawRegions);
+                "按连通区域着色（覆盖绿/红配色）", NavDebugSettings.DrawRegions);
             NavDebugSettings.DrawAgents = EditorGUILayout.ToggleLeft(
                 "代理（半径 + 速度 + 期望速度）", NavDebugSettings.DrawAgents);
             NavDebugSettings.DrawPaths = EditorGUILayout.ToggleLeft(

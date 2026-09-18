@@ -4,6 +4,23 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.10] — Binary walkable/blocked coloring for the voxel grid
+
+### Changed
+
+- **The voxel grid switched from four-state wireframe cubes to "green outline = walkable /
+  red solid = not walkable".**
+
+  All four states (occupied / insufficient clearance / isolated / walkable) used to be low-alpha
+  wireframes and blurred into one mass with no readable boundary. The test is now the binary
+  `IsWalkable` (the same function pathfinding uses): walkable cells get a green outline, everything
+  else is filled red — so the clearance ring around walls, which agents genuinely cannot enter,
+  reads as blocked too.
+
+  Cells are drawn as flat rectangles (`DrawSolidRectangleWithOutline`) rather than cubes, because a
+  2D grid has a single voxel layer and only a face shows. The four corners come from a reused
+  buffer, not a per-cell allocation.
+
 ## [0.2.9] — Navigation debug window and scene visualization
 
 ### Added
