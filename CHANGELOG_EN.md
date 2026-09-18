@@ -4,6 +4,31 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.14] — Added the navigation position projection system
+
+### Added
+
+- **`NavProjectionSystem`: pulls agents that left the walkable area back to the nearest walkable voxel.**
+
+  ORCA is a soft constraint — it produces the least-colliding velocity, not a guarantee that the
+  result stays inside the walkable area. In a crowd, agents on the outer ring of a formation get
+  squeezed into the clearance band along walls, or into the wall itself, and then stay stuck: an
+  unwalkable start makes `NavAStar.Begin`'s walkability check fail the request outright, and a
+  failure is never retried.
+
+  Measured with a 50-unit formation advancing through its final stretch: of 51 agents, 45 were
+  walkable, **5 sat in the clearance band and 1 was inside a wall**, all on the formation's outer
+  ring (formation half-width ±3.925 m vs the road's usable half-width of ±3.25 m).
+
+  The search walks outward ring by ring for the nearest walkable voxel (4 rings max), so the
+  displacement is minimal and an agent is never thrown through a wall. Only the two axes the grid
+  spans are rewritten; the third keeps its value (otherwise the agent is moved onto the grid's
+  constant plane).
+
+  **Where to register it**: after your integration system, within the same tick. The package does not
+  place it in any system group — integration differs per consumer, so register it yourself:
+  `<c>ticker.Register&lt;NavProjectionSystem&gt;();</c>`
+
 ## [0.2.13] — Project ground agents' velocity back onto the motion plane
 
 ### Fixed
