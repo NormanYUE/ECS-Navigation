@@ -159,6 +159,15 @@ namespace Ember.Navigation
                 NavLinearProgram3D.Solve(lines, lineCount, MaxSpeeds[index], Preferred[index], out result);
             }
 
+            // 地面代理：解出的速度必须落在运动平面内。
+            //
+            // 期望速度来自路径跟随，而航点是 grid.VoxelToWorld 的产物、带**烘焙平面**的 z
+            // （本工程网格原点 z = -4），于是期望速度里混进一个指向该平面的分量。
+            // 无约束时 NavLinearProgram2D 直接返回期望速度（平面法线只用于构造约束），
+            // 代理便一路沉到烘焙平面上 —— 表现为代理 z 与游戏平面错开好几米。
+            if (planar)
+                result = NavPlane.Flatten(result, planeNormal);
+
             NewVelocities[index] = result;
             NeighborCounts[index] = neighborCount;
         }
