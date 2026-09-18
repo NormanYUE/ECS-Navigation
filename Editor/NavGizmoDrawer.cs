@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Ember.Navigation.Editor
 {
     /// <summary>
-    /// 场景视图里的导航可视化：体素网格（占据 / 可行走 / 距离不足，可选按区域着色）、
+    /// 场景视图里的导航可视化：体素网格（可走绿色空心 / 不可走红色实心，可选按区域着色）、
     /// 代理（半径 + 当前速度 + ORCA 期望速度）、路径（航点连线 + 当前目标）。
     ///
     /// 体素数在大地图上是百万级，逐格画会拖垮编辑器 —— 按<b>目标绘制量</b>
@@ -20,10 +20,16 @@ namespace Ember.Navigation.Editor
     [InitializeOnLoad]
     public static class NavGizmoDrawer
     {
-        private static readonly Color OccupiedColor = new(0.95f, 0.45f, 0.15f, 0.45f);
-        private static readonly Color BlockedColor = new(0.85f, 0.85f, 0.25f, 0.30f);
+        /// <summary>可走：绿色空心（只描边、不填充），一眼看出通行走廊的边界。</summary>
+        private static readonly Color WalkableOutline = new(0.25f, 1f, 0.35f, 1f);
+
+        /// <summary>不可走：红色实心（填充 + 描边）。占据、距离不足、区域外一律归此类。</summary>
+        private static readonly Color BlockedFill = new(0.85f, 0.12f, 0.12f, 0.45f);
+        private static readonly Color BlockedOutline = new(1f, 0.25f, 0.2f, 1f);
         private static readonly Color IsolatedColor = new(0.55f, 0.55f, 0.55f, 0.30f);
-        private static readonly Color WalkableColor = new(0.35f, 0.85f, 0.55f, 0.30f);
+
+        /// <summary>逐格填充用的四点缓冲。每次重绘会画上万格，不能每格 new 一个数组。</summary>
+        private static readonly Vector3[] s_Quad = new Vector3[4];
         private static readonly Color RadiusColor = new(1f, 1f, 1f, 0.6f);
         private static readonly Color VelocityColor = new(0.2f, 0.6f, 1f, 1f);
         private static readonly Color DesiredColor = new(1f, 0.85f, 0.2f, 1f);
@@ -55,6 +61,13 @@ namespace Ember.Navigation.Editor
 
         #region 网格
 
+        /// <summary>
+        /// 逐格画平面方格（不是线框立方体）：2D 网格只有一层体素，填充色才看得出「面」。
+        ///
+        /// 判据是二元的 <see cref="NavWorldView.IsWalkable"/>（占位 + 距离场等级），
+        /// 与寻路用的是同一个函数 —— 绿色描边即「代理站得下」，红色实心即「站不下」。
+        /// 占据、距离不足、区域外都归红色，不细分：调试时关心的是能不能走，不是为什么不能。
+        /// </summary>
         private static void DrawMesh(in NavWorldView nav, in NavGrid grid)
         {
             int budget = NavDebugSettings.MeshBudget;
@@ -62,8 +75,7 @@ namespace Ember.Navigation.Editor
             int step = 1;
             while (total / ((long)step * step * step) > budget) step++;
 
-            float size = grid.VoxelSize * step * 0.9f;
-            var cube = new Vector3(size, size, size);
+            float half = grid.VoxelSize * step * 0.5f;
             float radius = NavDebugSettings.AgentRadius;
             bool byRegion = NavDebugSettings.DrawRegions;
 
@@ -73,17 +85,29 @@ namespace Ember.Navigation.Editor
             for (int x = 0; x < dims.x; x += step)
             {
                 var voxel = new int3(x, y, z);
-                Handles.color = byRegion ? RegionColor(nav.RegionAt(voxel)) : CellColor(nav, voxel, radius);
-                Handles.DrawWireCube(grid.VoxelToWorld(voxel), cube);
+                float3 center = grid.VoxelToWorld(voxel);
+                SetQuad(center, half);
+
+                if (byRegion) {
+                    Handles.DrawSolidRectangleWithOutline(s_Quad, RegionColor(nav.RegionAt(voxel)), Color.clear);
+                    continue;
+                }
+
+                if (nav.IsWalkable(voxel, radius)) {
+                    Handles.DrawSolidRectangleWithOutline(s_Quad, Color.clear, WalkableOutline);
+                } else {
+                    Handles.DrawSolidRectangleWithOutline(s_Quad, BlockedFill, BlockedOutline);
+                }
             }
         }
 
-        /// <summary>三态配色：占据 / 距离不足 / 区域外孤立 / 可走。</summary>
-        private static Color CellColor(in NavWorldView nav, int3 voxel, float radius)
+        /// <summary>把复用缓冲铺成体素中心的 XY 平面方格。</summary>
+        private static void SetQuad(float3 center, float half)
         {
-            if (nav.IsOccupied(voxel)) return OccupiedColor;
-            if (nav.RegionAt(voxel) < 0) return IsolatedColor;
-            return nav.IsWalkable(voxel, radius) ? WalkableColor : BlockedColor;
+            s_Quad[0] = new Vector3(center.x - half, center.y - half, center.z);
+            s_Quad[1] = new Vector3(center.x - half, center.y + half, center.z);
+            s_Quad[2] = new Vector3(center.x + half, center.y + half, center.z);
+            s_Quad[3] = new Vector3(center.x + half, center.y - half, center.z);
         }
 
         /// <summary>按连通区域上色。区域 id 是烘焙期分配的稠密下标，取模到固定调色板即可区分。</summary>
