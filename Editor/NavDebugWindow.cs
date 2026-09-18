@@ -59,6 +59,8 @@ namespace Ember.Navigation.Editor
             EditorGUILayout.Space(4f);
             NavDebugSettings.AgentRadius = EditorGUILayout.Slider(
                 "判定半径（米）", NavDebugSettings.AgentRadius, 0f, 3f);
+            NavDebugSettings.DrawPlaneZ = EditorGUILayout.FloatField(
+                "2D 绘制平面 Z", NavDebugSettings.DrawPlaneZ);
             NavDebugSettings.MeshBudget = EditorGUILayout.IntField(
                 "网格绘制上限（体素）", NavDebugSettings.MeshBudget);
             NavDebugSettings.AgentLimit = EditorGUILayout.IntField(
@@ -88,6 +90,7 @@ namespace Ember.Navigation.Editor
             EditorGUILayout.LabelField("体素尺寸", grid.VoxelSize.ToString("F3"));
             EditorGUILayout.LabelField("网格", $"{grid.Dimensions.x} × {grid.Dimensions.y} × {grid.Dimensions.z}");
             EditorGUILayout.LabelField("烘焙半径上界", state.MaxBakeRadius.ToString("F2"));
+            EditorGUILayout.LabelField("烘焙平面 Z", grid.Origin.z.ToString("F2"));
             EditorGUILayout.LabelField("连通区域数", state.RegionCount.ToString());
             EditorGUILayout.LabelField("区域间连接数", state.LinkCount.ToString());
 

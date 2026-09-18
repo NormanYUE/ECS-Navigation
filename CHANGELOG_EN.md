@@ -4,6 +4,21 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.12] — Draw 2D grids on a configurable plane
+
+### Fixed
+
+- **The navigation visualization drew on the bake plane rather than the gameplay plane, so it
+  appeared offset in perspective views.**
+
+  Here the grid origin is z = -4 (bake plane z ≈ -3.75) while the road sits at z = 0; in a
+  perspective scene view the two separate by a wide margin, reading as "same shape as the road,
+  but shifted far away".
+
+  For 2D grids (`Grid.Dimensions.z == 1`) the mesh, agents, waypoints and targets are now all drawn
+  on a new `DrawPlaneZ` setting (default 0). The debug window exposes it and also reports the bake
+  plane's Z so a mismatch is visible.
+
 ## [0.2.11] — Fall back to a full-grid A* when HPA* fails
 
 ### Fixed
