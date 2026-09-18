@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Ember.Collision;
 using Ember.Core;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -169,8 +170,28 @@ namespace Ember.Navigation
             {
                 BufferHandle handle = AcquirePathBuffer(world, chunk.GetEntity(row), smoothed);
                 BufferSpan<float3> waypoints = world.GetBuffer<float3>(handle);
+
+                // 平面代理（地面）的路径要落在**代理自己的运动平面**上，而不是网格挑的那层常数平面。
+                // grid.VoxelToWorld 给出的 z（或 y）是烘焙时选定的那一层，与代理所在平面通常不重合；
+                // 直接把航点写在那层上，路径跟随会判定代理「偏离路径」并输出零期望速度 ——
+                // 表现为整队一动不动，而请求状态一切正常（Ready、航点数也在）。
+                // 维度从网格形状反推，与 NavDynamicObstacleSystem 同一口径：
+                // 单层 z 即 XY 平面，单层 y 即 XZ 平面，其余是三维。
+                CollisionDimension dimension = grid.Dimensions.z == 1
+                    ? CollisionDimension.XY
+                    : grid.Dimensions.y == 1 ? CollisionDimension.XZ : CollisionDimension.XYZ;
+
+                float3 planeNormal = NavPlane.Normal(dimension);
+                bool planar = math.lengthsq(planeNormal) > 0f;
+                float3 origin = transforms.At(row).Position;
+
                 for (int i = 0; i < smoothed; i++)
-                    waypoints[i] = grid.VoxelToWorld(m_Workspace.SmoothWaypoints[i]);
+                {
+                    float3 point = grid.VoxelToWorld(m_Workspace.SmoothWaypoints[i]);
+                    waypoints[i] = planar
+                        ? point - planeNormal * math.dot(point - origin, planeNormal)
+                        : point;
+                }
 
                 NavPathState pathState = paths.At(row);
                 pathState.Waypoints = handle;

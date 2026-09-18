@@ -4,6 +4,27 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.15] — Planar agents get waypoints on their own motion plane
+
+### Fixed
+
+- **Ground agents received waypoints written on the grid's constant plane; when that plane differs from
+  the agent's, path following returns a zero desired velocity outright.**
+
+  The third component of `grid.VoxelToWorld` is **the layer chosen at bake time** (here the grid origin
+  is z = -4, so z ≈ -3.75), which sits metres away from the plane the agents actually live on (z = 0).
+  `NavPathFollower` assumes the agent is on the path and returns a zero velocity otherwise — so requests
+  read `Ready` with waypoints present, yet the agent never moves.
+
+  The defect was masked by another one: before 0.2.13 projected ground agents' velocity back onto the
+  motion plane, agents sank all the way to the grid's layer, which happened to be the waypoints' plane,
+  so path following worked by accident.
+
+  Fix: waypoints are projected onto the plane **through the agent's current position**
+  (`point − n·dot(point − origin, n)`) using the motion-plane normal. 3D bakes are unaffected
+  (the normal is zero so `planar` is false). The dimension is inferred from the grid shape, matching
+  `NavDynamicObstacleSystem`.
+
 ## [0.2.14] — Added the navigation position projection system
 
 ### Added
