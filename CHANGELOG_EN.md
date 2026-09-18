@@ -4,6 +4,24 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.16] — String pulling keeps a clearance margin
+
+### Fixed
+
+- **Paths hugged the "barely walkable" boundary, making agents jitter forward and back along walls.**
+
+  `PullString`'s clearance test used a quantized level **exactly equal to the agent radius**, so a
+  smoothed path could run one radius away from a wall — precisely the walkability boundary. The
+  slightest deviation pushed the agent outside, and because the distance field is quantized
+  (8 bits over a MaxBakeRadius of 4 m ≈ 0.016 m per step) its gradient flips between adjacent
+  voxels. ORCA's static-obstacle constraint flips with it, showing up as forward/backward jitter,
+  most visible on right-angle corners.
+
+  Fix: **smoothing uses the level for radius × 1.6 while the A* search keeps the plain radius.**
+  The search is not tightened — a genuinely narrow passage would otherwise become unroutable —
+  and tightening smoothing only keeps paths a bit further from walls, falling back to more
+  waypoints when it cannot pull.
+
 ## [0.2.15] — Planar agents get waypoints on their own motion plane
 
 ### Fixed
