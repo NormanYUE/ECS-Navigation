@@ -139,19 +139,19 @@ namespace Ember.Navigation
             var grid = ctx.Grid;
             if (!grid.IsInside(start) || !grid.IsInside(goal))
             {
-                LastStatus = PathStatus.OutOfBounds;
+                ctx.LastStatus = PathStatus.OutOfBounds;
                 return -1;
             }
             int startNode = ctx.VoxelNodes[grid.VoxelIndex(start)];
             int goalNode = ctx.VoxelNodes[grid.VoxelIndex(goal)];
             if (startNode < 0)
             {
-                LastStatus = PathStatus.NoStartNode;
+                ctx.LastStatus = PathStatus.NoStartNode;
                 return -1;
             }
             if (goalNode < 0)
             {
-                LastStatus = PathStatus.NoGoalNode;
+                ctx.LastStatus = PathStatus.NoGoalNode;
                 return -1;
             }
 
@@ -159,7 +159,7 @@ namespace Ember.Navigation
             if (startNode == goalNode)
             {
                 int single = RunSegment(ref ctx, start, goal, startNode, waypoints, capacity);
-                if (single >= 0) LastStatus = PathStatus.Success;
+                if (single >= 0) ctx.LastStatus = PathStatus.Success;
                 return single;
             }
 
@@ -167,7 +167,7 @@ namespace Ember.Navigation
             int clusterCount = SearchClusters(ref ctx, startNode, goalNode);
             if (clusterCount < 0)
             {
-                LastStatus = PathStatus.ClusterSearchFailed;
+                ctx.LastStatus = PathStatus.ClusterSearchFailed;
                 return -1;
             }
 
@@ -180,7 +180,7 @@ namespace Ember.Navigation
                 int nodeB = ctx.ClusterPath[i + 1];
                 if (!TryFindEdge(ref ctx, nodeA, nodeB, out NavClusterEdge edge))
                 {
-                    LastStatus = PathStatus.EdgeNotFound;
+                    ctx.LastStatus = PathStatus.EdgeNotFound;
                     return -1;
                 }
 
@@ -218,7 +218,7 @@ namespace Ember.Navigation
                 }
                 if (written + segment > capacity)
                 {
-                    LastStatus = PathStatus.CapacityExceeded;
+                    ctx.LastStatus = PathStatus.CapacityExceeded;
                     return -1;
                 }
                 for (int s = 0; s < segment; s++)
@@ -235,14 +235,14 @@ namespace Ember.Navigation
             }
             if (written + tail > capacity)
             {
-                LastStatus = PathStatus.CapacityExceeded;
+                ctx.LastStatus = PathStatus.CapacityExceeded;
                 return -1;
             }
             for (int s = 0; s < tail; s++)
                 waypoints[written + s] = ctx.SegmentWaypoints[s];
             written += tail;
 
-            LastStatus = PathStatus.Success;
+            ctx.LastStatus = PathStatus.Success;
             return written;
         }
 
@@ -270,18 +270,18 @@ namespace Ember.Navigation
             NavAStar.Reset(ref ctx.AStar, ctx.Grid.VoxelCount);
             if (!NavAStar.Begin(ref ctx.AStar, start))
             {
-                LastStatus = PathStatus.SegmentBeginFailed;
+                ctx.LastStatus = PathStatus.SegmentBeginFailed;
                 return -1;
             }
 
             if (!NavAStar.RunToCompletion(ref ctx.AStar))
             {
-                LastStatus = PathStatus.SegmentSearchFailed;
+                ctx.LastStatus = PathStatus.SegmentSearchFailed;
                 return -1;
             }
 
             int extracted = NavAStar.ExtractPath(ref ctx.AStar, start, goal, output, capacity);
-            LastStatus = extracted < 0 ? PathStatus.CapacityExceeded : PathStatus.FallbackSuccess;
+            ctx.LastStatus = extracted < 0 ? PathStatus.CapacityExceeded : PathStatus.FallbackSuccess;
             return extracted;
         }
 
@@ -295,24 +295,24 @@ namespace Ember.Navigation
 
             long voxelCount = ctx.Grid.VoxelCount;
             NavAStar.Reset(ref ctx.AStar, voxelCount);
-            DebugLastSegmentNode = node;
-            DebugLastSegmentFrom = from;
-            DebugLastSegmentTo = to;
+            ctx.DebugLastSegmentNode = node;
+            ctx.DebugLastSegmentFrom = from;
+            ctx.DebugLastSegmentTo = to;
 
             if (!NavAStar.Begin(ref ctx.AStar, from))
             {
-                LastStatus = PathStatus.SegmentBeginFailed;
+                ctx.LastStatus = PathStatus.SegmentBeginFailed;
                 return -1;
             }
             if (!NavAStar.RunToCompletion(ref ctx.AStar))
             {
-                LastStatus = PathStatus.SegmentSearchFailed;
+                ctx.LastStatus = PathStatus.SegmentSearchFailed;
                 return -1;
             }
             int extracted = NavAStar.ExtractPath(ref ctx.AStar, from, to, output, capacity);
             if (extracted < 0)
             {
-                LastStatus = PathStatus.CapacityExceeded;
+                ctx.LastStatus = PathStatus.CapacityExceeded;
             }
             return extracted;
         }
