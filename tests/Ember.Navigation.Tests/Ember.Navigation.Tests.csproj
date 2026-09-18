@@ -10,8 +10,6 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Framework</EmberFrameworkDir>
         <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
-        <EmberCoreDll Condition="'$(EmberCoreDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Core.Package/Runtime/Ember.Core.dll</EmberCoreDll>
-        <EmberCollisionDll Condition="'$(EmberCollisionDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Collision.Package/Runtime/Ember.Collision.dll</EmberCollisionDll>
     </PropertyGroup>
 
     <ItemGroup>
@@ -22,16 +20,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Ember.Navigation.csproj" />
+        <!-- Ember.Core / Ember.Collision 用源码工程引用：派生模块之间一律
+             ProjectReference，旧的 *.Package 包库已废弃删除。 -->
+        <ProjectReference Include="..\..\..\Ember.Core\Ember.Core.csproj" />
+        <ProjectReference Include="..\..\..\Ember.Collision\Ember.Collision.csproj" />
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
-            <Private>true</Private>
-        </Reference>
-        <Reference Include="Ember.Core">
-            <HintPath>$(EmberCoreDll)</HintPath>
-            <Private>true</Private>
-        </Reference>
-        <Reference Include="Ember.Collision">
-            <HintPath>$(EmberCollisionDll)</HintPath>
             <Private>true</Private>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
@@ -47,7 +41,7 @@
             <Private>true</Private>
         </Reference>
         <Reference Include="Unity.Burst">
-            <HintPath>$(MSBuildThisFileDirectory)../../../Ember.Navigation/libs/Unity.Burst.dll</HintPath>
+            <HintPath>$(MSBuildThisFileDirectory)../../Libs~/Unity.Burst.dll</HintPath>
             <Private>true</Private>
         </Reference>
     </ItemGroup>

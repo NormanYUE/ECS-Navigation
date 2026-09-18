@@ -10,11 +10,6 @@ namespace Ember.Navigation
     /// </summary>
     public static unsafe class NavHpaPathfinder
     {
-        /// <summary>诊断：最近失败的簇内段（节点 / 起止体素）。仅在调试构建有意义。</summary>
-        public static int DebugLastSegmentNode = -1;
-        public static int3 DebugLastSegmentFrom;
-        public static int3 DebugLastSegmentTo;
-
         /// <summary>最近一次寻路失败原因（诊断用；成功时 Success）。</summary>
         public enum PathStatus
         {
@@ -48,9 +43,6 @@ namespace Ember.Navigation
             /// <summary>全图回退搜索成功（HPA* 失败后由 <see cref="FindPathExhaustive"/> 找到）。</summary>
             FallbackSuccess = 9,
         }
-
-        /// <summary>最近一次 <see cref="FindPath"/> 的状态。</summary>
-        public static PathStatus LastStatus { get; private set; }
 
         /// <summary>HPA* 工作区。</summary>
         public struct Context
@@ -126,6 +118,15 @@ namespace Ember.Navigation
 
             /// <summary>单段容量。</summary>
             public int SegmentCapacity;
+
+            // ---- 诊断（随 Context 实例走，曾经的静态字段）----
+            /// <summary>最近一次 <see cref="FindPath"/> / <see cref="FindPathExhaustive"/> 的状态。</summary>
+            public PathStatus LastStatus;
+
+            /// <summary>诊断：最近失败的簇内段（节点 / 起止体素）。仅在调试构建有意义。</summary>
+            public int DebugLastSegmentNode;
+            public int3 DebugLastSegmentFrom;
+            public int3 DebugLastSegmentTo;
         }
 
         /// <summary>

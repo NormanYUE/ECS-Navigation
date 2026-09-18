@@ -4,6 +4,26 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.13] — Project ground agents' velocity back onto the motion plane
+
+### Fixed
+
+- **Ground agents sank all the way to the navigation bake plane, ending up metres away from the
+  gameplay plane in z.**
+
+  The desired velocity comes from path following (`NavPathFollower`), whose waypoints are produced by
+  `NavGrid.VoxelToWorld` and therefore carry the **bake plane's** z. `NavLinearProgram2D` returns the
+  preferred velocity verbatim when no constraint is active (the plane normal is only used to build
+  constraint lines), so that out-of-plane component fed straight into integration.
+
+  Measured on a 2D level (grid origin z = -4): of 51 agents, **30 sat at z = -3.75**, 20 were still
+  drifting, and only 1 was still at 0. The consequence is not just a drifted position — the agents'
+  colliders and all debug visualization moved with them, which reads as "these don't line up with the
+  road".
+
+  Fix: `NavAgentJob` flattens the solved velocity onto the motion plane (`NavPlane.Flatten`).
+  Flying agents and 3D bakes are unaffected (the plane normal is zero, so `planar` is false).
+
 ## [0.2.12] — Draw 2D grids on a configurable plane
 
 ### Fixed

@@ -8,8 +8,6 @@
         <AssemblyName>Ember.Navigation.Editor</AssemblyName>
         <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Framework</EmberFrameworkDir>
         <UnityManagedDir Condition="'$(UnityManagedDir)' == ''">/Applications/Unity/Hub/Editor/2022.3.62f2/Unity.app/Contents/Managed</UnityManagedDir>
-        <EmberPackageDir Condition="'$(EmberPackageDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Navigation.Package</EmberPackageDir>
-        <EmberDeployPackageBinaries Condition="'$(EmberDeployPackageBinaries)' == ''">false</EmberDeployPackageBinaries>
     </PropertyGroup>
 
     <ItemGroup>
@@ -19,22 +17,16 @@
 
     <PropertyGroup>
         <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
-        <EmberCoreDll Condition="'$(EmberCoreDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Core.Package/Runtime/Ember.Core.dll</EmberCoreDll>
-        <EmberCollisionDll Condition="'$(EmberCollisionDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Collision.Package/Runtime/Ember.Collision.dll</EmberCollisionDll>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="../Ember.Navigation.csproj" />
+        <!-- Ember.Core / Ember.Collision 用源码工程引用：派生模块之间一律
+             ProjectReference，旧的 *.Package 包库已废弃删除。 -->
+        <ProjectReference Include="../../Ember.Core/Ember.Core.csproj" />
+        <ProjectReference Include="../../Ember.Collision/Ember.Collision.csproj" />
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Ember.Core">
-            <HintPath>$(EmberCoreDll)</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="Ember.Collision">
-            <HintPath>$(EmberCollisionDll)</HintPath>
             <Private>false</Private>
         </Reference>
     </ItemGroup>
@@ -66,14 +58,6 @@
         </Reference>
     </ItemGroup>
 
-    <!-- 部署到包库的 Editor/ 目录：Unity 对名为 Editor 的文件夹有特殊规则，
-         其下的 DLL 自动只进编辑器程序集，无需 asmdef（与 Ember.Package 同构）。 -->
-    <Target Name="DeployEditorDll" AfterTargets="Build"
-            Condition="'$(EmberDeployPackageBinaries)' == 'true'">
-        <MakeDir Directories="$(EmberPackageDir)/Editor"/>
-        <Copy SourceFiles="$(TargetPath)"
-              DestinationFiles="$(EmberPackageDir)/Editor/Ember.Navigation.Editor.dll"
-              SkipUnchangedFiles="true" />
-    </Target>
-
+    <!-- Editor 以源码随包发布（Editor/ 目录 + asmdef，由 Unity 编译），
+         dotnet 侧构建仅用于 IDE 校验，没有 DLL 部署步骤。 -->
 </Project>
