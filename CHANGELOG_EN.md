@@ -4,6 +4,35 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.9] — Navigation debug window and scene visualization
+
+### Added
+
+- **`Ember/Navigation/调试窗口` (Debug Window): per-layer toggles plus voxel / region / request stats.**
+
+  The stats panel reports a request-status histogram (none / pending / in-progress / ready / failed)
+  and four-way voxel counts (occupied / isolated / insufficient clearance / walkable). Those two
+  numbers answer "why is this agent not moving": a large `Failed` count usually means the target
+  landed inside a wall or the request was issued before navigation data was ready, while a
+  collapsed walkable count means the navigable area has been fragmented.
+
+  Failures are called out explicitly: `NavRequestStatus.Failed` is never retried by any system.
+
+- **Scene view visualization extended to three layers** (previously walkable voxels only):
+
+  | Layer | Content |
+  | --- | --- |
+  | Voxel grid | occupied / insufficient clearance / isolated / walkable, optionally colored by region |
+  | Agents | agent radius disc + current velocity + ORCA desired velocity (divergence means avoidance) |
+  | Paths | waypoint polyline (from the current index) + the current pathfinding target |
+
+### Changed
+
+- Manager resolution is now `NavBakeContext.Manager ?? ECSManager.Active`, so consumers need no
+  registration line.
+- `NavGizmoDrawer` toggles and budgets moved to `NavDebugSettings` (persisted in EditorPrefs),
+  shared by the window and the scene drawer; default mesh budget raised from 4000 to 16000.
+
 ## [0.2.8] — Two Editor-side reference fixes for the source package
 
 ### Fixed
