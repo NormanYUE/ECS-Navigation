@@ -43,6 +43,9 @@ namespace Ember.Navigation.Editor
 
         private static void OnSceneGui(SceneView view)
         {
+            // 只在 Repaint 事件绘制：duringSceneGui 对 Layout/鼠标事件同样触发，
+            // 此时发 GL（HandleCap 硬编码 Repaint 不区分事件）会污染 Scene 视图渲染（花屏）。
+            if (Event.current.type != EventType.Repaint) return;
             if (!Application.isPlaying) return;
             if (!NavDebugSettings.DrawMesh && !NavDebugSettings.DrawAgents && !NavDebugSettings.DrawPaths) return;
 
@@ -156,6 +159,7 @@ namespace Ember.Navigation.Editor
                 for (int row = 0; row < chunk.Count && drawn < limit; row++)
                 {
                     float3 position = transforms.At(row).Position;
+                    if (!IsFinite(position)) continue;
                     var origin = new Vector3(position.x, position.y, PlaneZ(nav, position.z));
 
                     // 半径：导航判定的代理半径，不是碰撞形状的外接圆。
@@ -194,6 +198,7 @@ namespace Ember.Navigation.Editor
                 {
                     NavPathState path = paths.At(row);
                     NavRequest request = requests.At(row);
+                    if (!IsFinite(request.Target) || !IsFinite(transforms.At(row).Position)) continue;
 
                     // 目标点：无论有没有路径都画 —— 目标落在墙里正是最常见的失败原因。
                     Handles.color = TargetColor;
@@ -224,6 +229,8 @@ namespace Ember.Navigation.Editor
             for (int i = start; i < path.WaypointCount; i++)
             {
                 float3 waypoint = waypoints[i];
+                // 缓冲跨代复用可能读出坏值：坏点跳过该段，别让一条线污染整屏。
+                if (!IsFinite(waypoint)) continue;
                 var current = new Vector3(waypoint.x, waypoint.y, PlaneZ(nav, waypoint.z));
                 Handles.DrawLine(previous, current);
                 previous = current;
@@ -232,7 +239,8 @@ namespace Ember.Navigation.Editor
 
         private static void DrawArrow(float3 origin, float3 velocity, Color color)
         {
-            if (math.lengthsq(velocity) < 1e-6f) return;
+            // NaN 与 lengthsq 比较为 false，原守卫拦不住 NaN 速度。
+            if (!IsFinite(velocity) || math.lengthsq(velocity) < 1e-6f) return;
 
             Handles.color = color;
             var from = new Vector3(origin.x, origin.y, origin.z);
@@ -242,5 +250,8 @@ namespace Ember.Navigation.Editor
         }
 
         #endregion
+
+        private static bool IsFinite(float3 value) =>
+            float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
     }
 }
