@@ -4,19 +4,7 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
-## [0.2.19] — Scene gizmo anti-corruption fix
-
-### Fixed
-
-- **Intermittent full-screen garbling in the Scene view (same root cause as Collision 1.0.6).**
-
-  The navigation gizmo drawer had the same two pollution sources: GL emitted on non-Repaint
-  events and unguarded coordinates. Agent positions / velocities, path request targets and
-  waypoint buffers are now finite-checked per entry, with a Repaint gate at the entry point.
-  `DrawArrow`'s original `lengthsq < 1e-6` guard compares false against NaN and could not
-  stop bad velocities — fixed as well.
-
-## [0.2.19] — Path following projects the agent onto the polyline before looking ahead
+## [0.2.20] — Path following projects the agent onto the polyline before looking ahead
 
 ### Fixed
 
@@ -37,6 +25,18 @@ All notable changes to Ember Navigation.
   look-ahead distance. That leg is not part of the path, and counting it is what made the agent
   charge at an off-path point in the first place. The existing
   `LookAhead_CrossesWaypointBoundary` expectation has been updated to the new semantics.
+
+## [0.2.19] — Scene gizmo anti-corruption fix
+
+### Fixed
+
+- **Intermittent full-screen garbling in the Scene view (same root cause as Collision 1.0.6).**
+
+  The navigation gizmo drawer had the same two pollution sources: GL emitted on non-Repaint
+  events and unguarded coordinates. Agent positions / velocities, path request targets and
+  waypoint buffers are now finite-checked per entry, with a Repaint gate at the entry point.
+  `DrawArrow`'s original `lengthsq < 1e-6` guard compares false against NaN and could not
+  stop bad velocities — fixed as well.
 
 ## [0.2.18] — The 2D ORCA constraint axis was off by 90°
 

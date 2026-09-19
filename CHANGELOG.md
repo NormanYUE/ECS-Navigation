@@ -4,17 +4,7 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
-## [0.2.19] — 场景 Gizmos 防花屏
-
-### Fixed
-
-- **Scene 视图偶发整屏花屏（与 Collision 1.0.6 同一病根）。**
-
-  导航 Gizmo 绘制器同样存在「非 Repaint 事件发 GL」与「坏坐标入批」两个污染源：
-  代理位置 / 速度、寻路目标点、航点缓冲现在逐一做有限性检查，入口加 Repaint 门控。
-  `DrawArrow` 原 `lengthsq < 1e-6` 守卫对 NaN 比较恒为 false，拦不住坏速度，一并修复。
-
-## [0.2.19] — 路径跟随的前瞻点先投影到折线上
+## [0.2.20] — 路径跟随的前瞻点先投影到折线上
 
 ### Fixed
 
@@ -30,6 +20,16 @@ All notable changes to Ember Navigation.
   行为上有一处**刻意的语义变更**：「代理 → 折线起点」那一段不再计入前瞻里程。
   那段不是路径，算进去等于让代理朝一个偏离点直冲 —— 正是这个 bug 本身。
   既有用例 `LookAhead_CrossesWaypointBoundary` 的期望值已按新语义更正。
+
+## [0.2.19] — 场景 Gizmos 防花屏
+
+### Fixed
+
+- **Scene 视图偶发整屏花屏（与 Collision 1.0.6 同一病根）。**
+
+  导航 Gizmo 绘制器同样存在「非 Repaint 事件发 GL」与「坏坐标入批」两个污染源：
+  代理位置 / 速度、寻路目标点、航点缓冲现在逐一做有限性检查，入口加 Repaint 门控。
+  `DrawArrow` 原 `lengthsq < 1e-6` 守卫对 NaN 比较恒为 false，拦不住坏速度，一并修复。
 
 ## [0.2.18] — 二维 ORCA 的约束轴差了一个 90°
 
