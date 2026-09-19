@@ -67,6 +67,34 @@ namespace Ember.Navigation.Tests
             Assert.That(desired.y / 3f, Is.EqualTo(6f * inverse).Within(Tol), "y 方向");
         }
 
+        /// <summary>
+        /// 代理还差一点没到「当前航点」时，前瞻仍须沿**进来的那一段**走，不能从该航点起
+        /// 直接沿下一段斜切出去。
+        ///
+        /// 回归用例：投影原先只扫「当前航点及之后」的段。而 currentIndex 是「正在赶往的
+        /// 那个航点」，代理通常还差一点没到它 —— 于是投影被迫落在该航点本身，
+        /// 前瞻再从那里沿下一段走，方向就从侧面切出路径。
+        /// 这里代理正在直角弯前的直路段上行进，期望方向必须笔直向前，不能带横向分量。
+        /// </summary>
+        [Test]
+        public void LookAhead_ShortOfCurrentWaypoint_FollowsIncomingSegment()
+        {
+            // 直角路径：先沿 +Y 到 (0,10)，再沿 +X。代理在直路段正中，当前航点是拐角。
+            var waypoints = new[]
+            {
+                new float3(0f, 0f, 0f), new float3(0f, 10f, 0f), new float3(10f, 10f, 0f),
+            };
+            int index = 1;
+
+            bool onPath = Step(waypoints, new float3(0f, 5f, 0f), 3f, 0.5f, 2f, ref index,
+                out float3 desired);
+
+            Assert.That(onPath, Is.True);
+            Assert.That(index, Is.EqualTo(1), "尚未到达拐角，不应推进航点");
+            Assert.That(desired.x, Is.EqualTo(0f).Within(Tol), "不该有横向分量（斜切弯角）");
+            Assert.That(desired.y, Is.EqualTo(3f).Within(Tol), "应沿当前直路段向前");
+        }
+
         [Test]
         public void LookAhead_CrossesWaypointBoundary()
         {
