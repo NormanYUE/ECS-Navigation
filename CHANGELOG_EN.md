@@ -4,6 +4,30 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.17] — Smoothing clearance is a preference, not a gate
+
+### Fixed
+
+- **A\* found a path, yet the request came back `Failed` — a regression introduced in 0.2.16.**
+
+  `PullString` calls two points mutually visible only when **every sampled voxel along the
+  segment** has clearance ≥ `requiredLevel`. 0.2.16 raised the smoothing `requiredLevel` from the
+  **plain radius** to **radius × 1.6** while the search kept the plain radius. Once the two levels
+  differ, a single voxel on the A\* path whose clearance falls between them
+  (0.30–0.48 m at radius 0.3 — any slightly narrowed corridor will do) makes visibility fail
+  everywhere → `furthest < 0` → `-1` → the request is marked `Failed`. Before 0.2.16 both levels
+  were identical, so every path voxel passed by construction and this failure was unreachable.
+
+  Symptoms: the leader stalls in place, every new target cell fails the same way, and no amount of
+  retrying helps — while both endpoints pass every immediate-failure check in the package
+  (out of bounds / occupied voxel / differing regions), leaving nothing suspicious in the log.
+
+  Fix: **smoothing now scans twice.** The first pass looks for the furthest point reachable at the
+  preference level (radius × 1.6); when it finds none it retries at the path-validity level
+  (= the A\* level). The preference level therefore only affects *how far a shortcut may jump*,
+  never whether the path exists: a narrowed corridor degrades smoothing into keeping more
+  waypoints instead of failing the whole request.
+
 ## [0.2.16] — String pulling keeps a clearance margin
 
 ### Fixed

@@ -250,7 +250,7 @@ namespace Ember.Navigation.Tests
             int smoothed = NavPathSmoother.PullString(in f.Grid,
                 NavBlobReader.Segment(blob, NavBlobSegment.Occupancy),
                 NavBlobReader.Segment(blob, NavBlobSegment.Distance),
-                0,
+                0, 0,
                 f.Waypoints.As<int3>(), count,
                 smooth.As<int3>(), count);
             Assert.That(smoothed, Is.GreaterThan(1).And.LessThanOrEqualTo(count));
@@ -266,6 +266,38 @@ namespace Ember.Navigation.Tests
                         0, smooth.As<int3>()[i - 1], smooth.As<int3>()[i]),
                     Is.True, $"smoothed segment {i - 1}->{i} must stay walkable");
             }
+        }
+
+        /// <summary>
+        /// 偏好等级严于路径成立等级时，平滑必须**退化**而不是失败。
+        ///
+        /// 回归用例：两者曾并作一趟，偏好等级一旦卡住走廊（A* 按等级 A 搜到的路径
+        /// 处处不满足等级 B），PullString 就返回 -1，A* 明明有解、请求却被判 Failed。
+        /// 这里把偏好等级拉到不可能满足的 255，结果仍须是一份有效路径。
+        /// </summary>
+        [Test]
+        public void PullString_FallsBackToMinLevelWhenPreferLevelIsUnreachable()
+        {
+            using var f = BuildFixture();
+            var hpa = MakeHpaContext(f);
+            var start = f.Grid.WorldToVoxelOnGrid(new float3(2f, 4f, 0f));
+            var goal = f.Grid.WorldToVoxelOnGrid(new float3(21f, 4f, 0f));
+            int count = NavHpaPathfinder.FindPath(ref hpa, start, goal,
+                f.Waypoints.As<int3>(), (int)f.Grid.VoxelCount);
+            Assert.That(count, Is.GreaterThan(1));
+
+            using var smooth = TestMemory.Alloc(count * sizeof(int3));
+            byte* blob = f.Blob.As<byte>();
+            int smoothed = NavPathSmoother.PullString(in f.Grid,
+                NavBlobReader.Segment(blob, NavBlobSegment.Occupancy),
+                NavBlobReader.Segment(blob, NavBlobSegment.Distance),
+                255, 0,
+                f.Waypoints.As<int3>(), count,
+                smooth.As<int3>(), count);
+
+            Assert.That(smoothed, Is.GreaterThan(1));
+            Assert.That(smooth.As<int3>()[0], Is.EqualTo(start));
+            Assert.That(smooth.As<int3>()[smoothed - 1], Is.EqualTo(goal));
         }
     }
 }

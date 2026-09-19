@@ -164,10 +164,14 @@ namespace Ember.Navigation
             // 梯度在相邻体素之间会翻向，ORCA 的静态障碍约束随之来回翻，
             // 代理表现为在墙边前进/后退反复。搜索仍用原半径的等级，
             // 否则本来就窄的通道会直接搜不到路。
+            //
+            // 它是**偏好**而不是**门槛**：PullString 先按它抄近道，够不着再退回 requiredLevel。
+            // 只当门槛用会出事 —— 请求会因平滑而失败（见 PullString 的两趟扫描）。
             int smoothLevel = RequiredLevel(state, agents.At(row).Radius * SmoothClearanceFactor);
 
             int smoothed = raw > 0
                 ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, smoothLevel,
+                    requiredLevel,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), raw,
                     (int3*)m_Workspace.SmoothWaypoints.GetUnsafePtr(), m_Workspace.SmoothWaypoints.Length)
                 : -1;
