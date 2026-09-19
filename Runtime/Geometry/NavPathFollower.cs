@@ -108,9 +108,13 @@ namespace Ember.Navigation
 
             int lastSegment = waypointCount - 2;
             var projectedPoint = position;
-            // 当前航点已经落在末点（末段没有「下一段」可走）时，投影必须退到末段上，
-            // 否则 startSegment + 1 越界。
-            var startSegment = math.min(currentIndex, lastSegment);
+            // 投影从**当前航点前一段**开始扫，而不是当前航点那一段：
+            // currentIndex 是「正在赶往的那个航点」，代理通常还差一点没到它 ——
+            // 只从它那一段扫，投影就被迫落在该段起点（= 那个航点），
+            // 而前瞻又从该起点往下走，方向于是从侧面切出去、离开路径。
+            //
+            // 越界保护同下：末点上没有「下一段」，退到末段。
+            var startSegment = math.clamp(currentIndex - 1, 0, lastSegment);
             float bestDistanceSq = float.MaxValue;
 
             for (int i = startSegment; i <= lastSegment; i++)

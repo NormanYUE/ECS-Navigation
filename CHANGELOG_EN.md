@@ -4,6 +4,32 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.22] — Look-ahead projects onto the incoming segment, no longer cutting corners sideways
+
+### Fixed
+
+- **While still short of the current waypoint, the desired velocity left the path sideways.**
+
+  0.2.20 made the look-ahead project the agent onto the polyline first. But the projection only
+  scanned the current waypoint **and later** segments, while `currentIndex` is the waypoint being
+  *approached* — the agent is usually still a little short of it. The projection was therefore
+  forced onto that waypoint itself, and the look-ahead walked the **next** segment from there,
+  sending the direction off to the side:
+
+  ```
+  right-angle path (0,0)→(0,10)→(10,10); agent at (0,5) on the straight leg, current waypoint (0,10)
+    → desired (0.37, 0.93)   ← cuts toward the far side of the corner
+  should be (0, 1)           ← walk straight to the corner first
+  ```
+
+  On the field the path itself was fine (measured minimum clearance 0.75 m along its whole length),
+  yet the desired velocity pushed the agent into the low-clearance band beside the path — in,
+  projected back out, in again: the oscillation seen at corners.
+
+  Fix: the projection now scans from the segment **before** the current waypoint
+  (`clamp(currentIndex - 1, 0, lastSegment)`). `currentIndex` is the target waypoint, and the
+  segment leading into it is the one under the agent's feet.
+
 ## [0.2.21] — The search keeps a clearance margin too, so paths stop cutting wall corners
 
 ### Fixed
