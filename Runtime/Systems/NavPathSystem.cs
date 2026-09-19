@@ -132,45 +132,25 @@ namespace Ember.Navigation
         {
             int3 start = grid.WorldToVoxelOnGrid(transforms.At(row).Position);
             int3 goal = grid.WorldToVoxelOnGrid(requests.At(row).Target);
-            int requiredLevel = RequiredLevel(state, agents.At(row).Radius);
-            context.RequiredLevel = requiredLevel;
-            context.AStar.RequiredLevel = requiredLevel;
             context.AStar.Goal = goal;
 
-            // 目标已有完成的流场时改走梯度下降：多代理共目标只需一次 Dijkstra，
-            // 每代理只剩沿路径走的开销。路径不如 A* 短，但接着要拉绳平滑。
-            int raw = -1;
-            NavFlowFieldSlot* flowSlots = view.FlowSlots();
-            int flowSlot = flowSlots == null ? -1 : FindCompletedFlowSlot(flowSlots, state, goal);
-            if (flowSlot >= 0
-                && view.TryExtractFlowPath(ref flowSlots[flowSlot], start, goal,
-                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(),
-                    m_Workspace.RawWaypoints.Length, out int flowCount))
-            {
-                raw = flowCount;
-            }
+            int requiredLevel = RequiredLevel(state, agents.At(row).Radius);
+            int preferLevel = RequiredLevel(state, agents.At(row).Radius * SmoothClearanceFactor);
 
-            if (raw <= 0)
-                raw = NavHpaPathfinder.FindPath(ref context, start, goal,
-                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
-
-            // HPA* 失败不等于无解：簇图的门户是烘焙期按无边界的可走性建的，
-            // 按代理半径过滤后可能过不去，而全图仍有路。回退一次全图搜索补完备性。
-            if (raw <= 0)
-                raw = NavHpaPathfinder.FindPathExhaustive(ref context, start, goal,
-                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
-
-            // 平滑另用一份更严的净空：路径贴着墙走会出事 —— 距离场是量化的，
-            // 梯度在相邻体素之间会翻向，ORCA 的静态障碍约束随之来回翻，
-            // 代理表现为在墙边前进/后退反复。搜索仍用原半径的等级，
-            // 否则本来就窄的通道会直接搜不到路。
+            // **先用有余量的等级搜**：路径贴墙的根源在搜索本身 —— 按半径搜出来的最短路
+            // 会贴着弯角切过去（实测某直角弯最低净空 0.36 米、而半径 0.30 米，只剩 6 厘米），
+            // 平滑再想拉也拉不开，因为拉开就意味着绕路，而拉绳只能省点、不能改路。
+            // 贴到禁区边缘的后果是代理在「可走 / 不可走」两格之间来回跨 —— 反复进出、抖动。
             //
-            // 它是**偏好**而不是**门槛**：PullString 先按它抄近道，够不着再退回 requiredLevel。
-            // 只当门槛用会出事 —— 请求会因平滑而失败（见 PullString 的两趟扫描）。
-            int smoothLevel = RequiredLevel(state, agents.At(row).Radius * SmoothClearanceFactor);
+            // 搜不到再退回半径等级：宁可路径贴墙，也不能因此无解。
+            int raw = Search(ref context, view, state, start, goal, preferLevel);
+            if (raw <= 0 && preferLevel > requiredLevel)
+                raw = Search(ref context, view, state, start, goal, requiredLevel);
 
+            // 平滑与搜索用同一对等级：先按偏好等级抄近道，够不着退回半径等级。
+            // 只把偏好当门槛用会出事 —— 请求会因平滑而失败（见 PullString 的两趟扫描）。
             int smoothed = raw > 0
-                ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, smoothLevel,
+                ? NavPathSmoother.PullString(in grid, occupancy, distanceLevels, preferLevel,
                     requiredLevel,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), raw,
                     (int3*)m_Workspace.SmoothWaypoints.GetUnsafePtr(), m_Workspace.SmoothWaypoints.Length)
@@ -214,6 +194,43 @@ namespace Ember.Navigation
             NavRequest request = requests.At(row);
             request.Status = smoothed > 0 ? NavRequestStatus.Ready : NavRequestStatus.Failed;
             requests.At(row) = request;
+        }
+
+        /// <summary>
+        /// 按给定净空等级搜一次原始航点：优先蹭现成的流场，其次 HPA*，最后全图回退。
+        /// 返回航点数，失败为 -1。
+        /// </summary>
+        private unsafe int Search(
+            ref NavHpaPathfinder.Context context,
+            in NavWorldView view,
+            in NavWorld state,
+            int3 start,
+            int3 goal,
+            int level)
+        {
+            context.RequiredLevel = level;
+            context.AStar.RequiredLevel = level;
+
+            // 目标已有完成的流场时改走梯度下降：多代理共目标只需一次 Dijkstra，
+            // 每代理只剩沿路径走的开销。路径不如 A* 短，但接着要拉绳平滑。
+            NavFlowFieldSlot* flowSlots = view.FlowSlots();
+            int flowSlot = flowSlots == null ? -1 : FindCompletedFlowSlot(flowSlots, state, goal);
+            if (flowSlot >= 0
+                && view.TryExtractFlowPath(ref flowSlots[flowSlot], start, goal,
+                    (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(),
+                    m_Workspace.RawWaypoints.Length, out int flowCount))
+            {
+                return flowCount;
+            }
+
+            int raw = NavHpaPathfinder.FindPath(ref context, start, goal,
+                (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
+            if (raw > 0) return raw;
+
+            // HPA* 失败不等于无解：簇图的门户是烘焙期按无边界的可走性建的，
+            // 按代理半径过滤后可能过不去，而全图仍有路。回退一次全图搜索补完备性。
+            return NavHpaPathfinder.FindPathExhaustive(ref context, start, goal,
+                (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(), m_Workspace.RawWaypoints.Length);
         }
 
         /// <summary>找到与目标体素匹配、且波前已耗尽的流场槽位；没有返回 -1。</summary>

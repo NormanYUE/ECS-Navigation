@@ -4,6 +4,31 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.21] — The search keeps a clearance margin too, so paths stop cutting wall corners
+
+### Fixed
+
+- **At a right-angle corner the shortest path cut the corner, and the agent oscillated in and out of the forbidden band.**
+
+  Since 0.2.16 smoothing has preferred the "radius × 1.6" level, but the **search still used the
+  plain radius**. So in some cases the shortest path found was itself hugging the corner — measured
+  on one right-angle corner: the segment's minimum clearance was 0.36 m against an agent radius of
+  0.30 m, leaving just **6 cm**. Smoothing cannot open that up (string pulling drops points, it does
+  not reroute), so the two-pass scan added in 0.2.17 fell back to the radius level and the path went
+  through hugging the corner.
+
+  Sitting that close to the forbidden band makes the agent cross back and forth between a walkable
+  and a non-walkable voxel — the observed oscillation at corners, compounded by the wall-avoidance
+  steering force pushing in exactly the opposite direction.
+
+  Fix: **the search uses the preference level first and falls back to the radius level** when it
+  finds nothing (completeness preserved). Paths keep a margin wherever the map allows, and only
+  settle for hugging when nothing wider exists.
+
+  Not covered: the shared flow field is built at level 0 (any non-obstacle voxel is walkable), so
+  flow-field paths still hug walls. One field serves agents of several radii, and picking its level
+  is a design question left for later.
+
 ## [0.2.20] — Path following projects the agent onto the polyline before looking ahead
 
 ### Fixed
