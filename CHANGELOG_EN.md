@@ -4,6 +4,18 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.19] — Scene gizmo anti-corruption fix
+
+### Fixed
+
+- **Intermittent full-screen garbling in the Scene view (same root cause as Collision 1.0.6).**
+
+  The navigation gizmo drawer had the same two pollution sources: GL emitted on non-Repaint
+  events and unguarded coordinates. Agent positions / velocities, path request targets and
+  waypoint buffers are now finite-checked per entry, with a Repaint gate at the entry point.
+  `DrawArrow`'s original `lengthsq < 1e-6` guard compares false against NaN and could not
+  stop bad velocities — fixed as well.
+
 ## [0.2.18] — The 2D ORCA constraint axis was off by 90°
 
 ### Fixed

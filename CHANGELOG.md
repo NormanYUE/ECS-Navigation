@@ -4,6 +4,16 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.2.19] — 场景 Gizmos 防花屏
+
+### Fixed
+
+- **Scene 视图偶发整屏花屏（与 Collision 1.0.6 同一病根）。**
+
+  导航 Gizmo 绘制器同样存在「非 Repaint 事件发 GL」与「坏坐标入批」两个污染源：
+  代理位置 / 速度、寻路目标点、航点缓冲现在逐一做有限性检查，入口加 Repaint 门控。
+  `DrawArrow` 原 `lengthsq < 1e-6` 守卫对 NaN 比较恒为 false，拦不住坏速度，一并修复。
+
 ## [0.2.18] — 二维 ORCA 的约束轴差了一个 90°
 
 ### Fixed
