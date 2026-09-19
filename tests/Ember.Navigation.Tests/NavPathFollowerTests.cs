@@ -38,10 +38,43 @@ namespace Ember.Navigation.Tests
             Assert.That(math.abs(desired.y) + math.abs(desired.z), Is.LessThan(Tol));
         }
 
+        /// <summary>
+        /// 代理被推到路径外侧时，前瞻点必须落在**折线上**，而不是从代理位置直接朝下一个
+        /// 航点切过去。
+        ///
+        /// 回归用例：前瞻原先从代理的实际位置起步，而避障会把代理推离折线 ——
+        /// 从那个偏离点朝十几米外的航点直线前进，方向会切过弯角（中间隔着墙）。
+        /// 战场上表现为顶着墙角原地磨、来回抖。现在先把位置投到折线上再前进。
+        /// </summary>
+        [Test]
+        public void LookAhead_FromOffPathPosition_StaysOnPath()
+        {
+            // 直角路径：先沿 +Y 到 (0,10)，再沿 +X 到 (12,10)。代理被推到路径右侧 (2,4)，
+            // 且已推进到最后一个航点（现场正是「当前航点到了末点、离终点还有十几米」）。
+            var waypoints = new[]
+            {
+                new float3(0f, 0f, 0f), new float3(0f, 10f, 0f), new float3(12f, 10f, 0f),
+            };
+            int index = 2;
+
+            bool onPath = Step(waypoints, new float3(2f, 4f, 0f), 3f, 0.5f, 2f, ref index,
+                out float3 desired);
+
+            Assert.That(onPath, Is.True);
+            // 投影点 (2,10)，沿水平段再前进 2 得目标 (4,10)；方向即 (2,6)/√40
+            float inverse = 1f / math.sqrt(40f);
+            Assert.That(desired.x / 3f, Is.EqualTo(2f * inverse).Within(Tol), "x 方向");
+            Assert.That(desired.y / 3f, Is.EqualTo(6f * inverse).Within(Tol), "y 方向");
+        }
+
         [Test]
         public void LookAhead_CrossesWaypointBoundary()
         {
-            // 折线在 (1,0,0) 处直角转弯；前瞻 2 应从 (1,0,0) 沿 +Y 再走 1
+            // 折线从 (1,0,0) 起沿 +Y 走，代理在 (0,0,0)（路径起点之前 1 米）。
+            //
+            // 前瞻**只沿折线**：代理先被投到折线起点 (1,0,0)，再前进 2 得 (1,2,0)。
+            // 它不再把「代理 → 折线起点」那一段算进前瞻里程 —— 那一段不是路径，
+            // 算进去就等于让代理朝一个偏离点直冲，正是切过弯角、顶着墙磨的来源。
             var waypoints = new[] { new float3(1f, 0f, 0f), new float3(1f, 5f, 0f) };
             int index = 0;
 
@@ -49,10 +82,10 @@ namespace Ember.Navigation.Tests
 
             Assert.That(onPath, Is.True);
             Assert.That(index, Is.EqualTo(0), "尚未进入到达半径，不应推进航点");
-            // 目标点 (1,1,0)，位置 (0,0,0)，方向 (1,1,0)/√2
-            float inverseRoot2 = 1f / math.sqrt(2f);
-            Assert.That(desired.x, Is.EqualTo(2f * inverseRoot2).Within(Tol));
-            Assert.That(desired.y, Is.EqualTo(2f * inverseRoot2).Within(Tol));
+            // 目标点 (1,2,0)，位置 (0,0,0)，方向 (1,2,0)/√5
+            float inverseRoot5 = 1f / math.sqrt(5f);
+            Assert.That(desired.x, Is.EqualTo(2f * inverseRoot5).Within(Tol));
+            Assert.That(desired.y, Is.EqualTo(4f * inverseRoot5).Within(Tol));
         }
 
         [Test]

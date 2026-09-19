@@ -16,6 +16,28 @@ All notable changes to Ember Navigation.
   `DrawArrow`'s original `lengthsq < 1e-6` guard compares false against NaN and could not
   stop bad velocities — fixed as well.
 
+## [0.2.19] — Path following projects the agent onto the polyline before looking ahead
+
+### Fixed
+
+- **An agent off the path aimed its look-ahead across the corner — grinding against the wall corner and jittering.**
+
+  `NavPathFollower.LookAhead` walked the polyline starting from the **agent's actual position**.
+  But the agent is not always on the polyline: avoidance and separation forces push it off.
+  The starting point was therefore an off-path point, while the next waypoint could be a dozen
+  metres away — walking straight from the off-path point toward it yields a direction unrelated to
+  the path, driving the agent into a wall in between.
+
+  Fix: **project the agent's position onto the polyline first (nearest segment), then advance
+  along the path from that projection.** The nearest segment is used rather than the first one
+  because the polyline may self-intersect, and taking the first would put the projection behind
+  the agent.
+
+  One deliberate semantic change: the "agent → path start" leg no longer counts toward the
+  look-ahead distance. That leg is not part of the path, and counting it is what made the agent
+  charge at an off-path point in the first place. The existing
+  `LookAhead_CrossesWaypointBoundary` expectation has been updated to the new semantics.
+
 ## [0.2.18] — The 2D ORCA constraint axis was off by 90°
 
 ### Fixed

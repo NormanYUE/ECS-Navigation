@@ -88,19 +88,60 @@ namespace Ember.Navigation
         }
 
         /// <summary>
-        /// 沿折线自 <paramref name="position"/> 起前进 <paramref name="lookAheadDistance"/>
+        /// 从代理在折线上的**投影点**起，沿折线前进 <paramref name="lookAheadDistance"/>
         /// 得到的点；不足则取终点。重复航点（零长线段）跳过。
+        ///
+        /// <b>先投影再前进</b>，而不是从代理位置直接前进 —— 代理被避障/分离力推开后并不在
+        /// 折线上，从那个偏离点朝下一个航点直线前进，方向会**切过弯角**：它盯着的是前方
+        /// 十几米外的航点，而中间隔着一堵墙。表现就是顶着墙角原地磨、来回抖。
+        /// 投影到折线上再前进，得到的方向才始终沿路径。
+        ///
+        /// 投影段取「离代理最近」的那一段（而不是第一段）：折线可能自交，
+        /// 取第一段会把投影点甩到代理身后。
         /// </summary>
         private static float3 LookAhead(
             float3* waypoints, int waypointCount, float3 position, int currentIndex,
             float lookAheadDistance)
         {
             if (lookAheadDistance <= 0f) return waypoints[currentIndex];
+            if (waypointCount < 2) return waypoints[waypointCount - 1];
 
-            float3 from = position;
-            float remaining = lookAheadDistance;
+            int lastSegment = waypointCount - 2;
+            var projectedPoint = position;
+            // 当前航点已经落在末点（末段没有「下一段」可走）时，投影必须退到末段上，
+            // 否则 startSegment + 1 越界。
+            var startSegment = math.min(currentIndex, lastSegment);
+            float bestDistanceSq = float.MaxValue;
 
-            for (int i = currentIndex; i < waypointCount; i++)
+            for (int i = startSegment; i <= lastSegment; i++)
+            {
+                float3 a = waypoints[i];
+                float3 segment = waypoints[i + 1] - a;
+                float lengthSq = math.lengthsq(segment);
+                if (lengthSq <= Epsilon * Epsilon) continue;
+
+                float t = math.clamp(math.dot(position - a, segment) / lengthSq, 0f, 1f);
+                float3 point = a + segment * t;
+                float distanceSq = math.distancesq(position, point);
+                if (distanceSq >= bestDistanceSq) continue;
+
+                bestDistanceSq = distanceSq;
+                projectedPoint = point;
+                startSegment = i;
+            }
+
+            // 投影点落在 startSegment 上，先把它到该段末端的余量走完，再续后面的段。
+            float3 segmentEnd = waypoints[startSegment + 1];
+            float3 tail = segmentEnd - projectedPoint;
+            float tailLength = math.length(tail);
+
+            if (tailLength >= lookAheadDistance && tailLength > Epsilon)
+                return projectedPoint + tail * (lookAheadDistance / tailLength);
+
+            float remaining = lookAheadDistance - tailLength;
+            float3 from = segmentEnd;
+
+            for (int i = startSegment + 1; i < waypointCount; i++)
             {
                 float3 to = waypoints[i];
                 float3 segment = to - from;
