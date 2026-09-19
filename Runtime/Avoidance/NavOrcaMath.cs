@@ -99,7 +99,12 @@ namespace Ember.Navigation
                 {
                     float offsetLength = math.sqrt(offsetLengthSq);
                     float3 unitOffset = offsetLength > Epsilon ? offset / offsetLength : Fallback(planeNormal);
-                    direction = unitOffset;
+                    // 约束的法线取 unitOffset（背离障碍），而 direction 是**边界方向**，
+                    // 两者差一个平面内 90°（见 NavOrcaLine.FromDirectionPoint：
+                    // Normal = cross(planeNormal, direction)）。直接拿 unitOffset 当 direction
+                    // 等于把半平面转了 90°，卡到与障碍垂直的那个轴上 ——
+                    // 侧面的墙会把前进方向堵死，且边界过原点时线性规划的结果恰好落回原点（速度归零）。
+                    direction = -NavPlane.Rotate90(unitOffset, planeNormal);
                     escape = (combinedRadius * invTimeHorizon - offsetLength) * unitOffset;
                 }
                 else
@@ -121,7 +126,8 @@ namespace Ember.Navigation
                 float3 offset = relativeVelocity - invTimeStep * relativePosition;
                 float offsetLength = math.length(offset);
                 float3 unitOffset = offsetLength > Epsilon ? offset / offsetLength : Fallback(planeNormal);
-                direction = unitOffset;
+                // 同上：direction 是边界方向，比法线少一个 90°。
+                direction = -NavPlane.Rotate90(unitOffset, planeNormal);
                 escape = (combinedRadius * invTimeStep - offsetLength) * unitOffset;
             }
 
