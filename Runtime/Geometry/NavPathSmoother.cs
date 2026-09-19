@@ -16,7 +16,15 @@ namespace Ember.Navigation
         /// <param name="grid">网格。</param>
         /// <param name="occupancy">占据位集。</param>
         /// <param name="distanceLevels">距离场量化值。</param>
-        /// <param name="requiredLevel">半径侵蚀等级。</param>
+        /// <param name="preferLevel">
+        /// 抄近道偏好的净空等级（通常严于 <paramref name="minLevel"/>）：按它通视才肯跳过去，
+        /// 于是平滑后的路径天然离墙远一点。它只影响「跳多远」，不影响路径成不成立。
+        /// </param>
+        /// <param name="minLevel">
+        /// 路径成立的**最低**等级 —— 必须与 A* 搜索用的等级一致。
+        /// 混淆这两个等级会让平滑凭空失败：A* 按等级 A 验过的路径可能处处不满足等级 B，
+        /// 于是通视处处不成立、整条请求被判 Failed（详见下方两趟扫描）。
+        /// </param>
         /// <param name="waypoints">输入航点（体素坐标）。</param>
         /// <param name="count">输入航点数。</param>
         /// <param name="output">输出缓冲。</param>
@@ -26,14 +34,16 @@ namespace Ember.Navigation
             in NavGrid grid,
             byte* occupancy,
             byte* distanceLevels,
-            int requiredLevel,
+            int preferLevel,
+            int minLevel,
             int3* waypoints,
             int count,
             int3* output,
             int capacity)
         {
             if (count <= 0 || capacity <= 0) return -1;
-            if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, waypoints[0])) return -1;
+            // 起点校验用 minLevel：它本来就是 A* 验过的路径体素。
+            if (!IsWalkable(grid, occupancy, distanceLevels, minLevel, waypoints[0])) return -1;
 
             int written = 0;
             output[written++] = waypoints[0];
@@ -41,17 +51,20 @@ namespace Ember.Navigation
             int anchor = 0;
             while (anchor < count - 1)
             {
-                // 找最远通视航点。
-                int furthest = -1;
-                for (int candidate = count - 1; candidate > anchor; candidate--)
-                {
-                    if (HasLineOfSight(grid, occupancy, distanceLevels, requiredLevel,
-                            waypoints[anchor], waypoints[candidate]))
-                    {
-                        furthest = candidate;
-                        break;
-                    }
-                }
+                // 第一趟：按偏好等级找最远通视航点 —— 跳得越远，路径越直、越离墙。
+                int furthest = FurthestVisible(grid, occupancy, distanceLevels, preferLevel,
+                    waypoints, count, anchor);
+
+                // 第二趟：退到路径成立的最低等级。相邻航点在同一等级的 A* 里必然相连，
+                // 所以这一趟至少能推进一格 —— 平滑退化成「少省几个点」，
+                // 而不是把整条请求判失败。
+                //
+                // 两趟并作一趟是有代价的：偏好等级一旦严于搜索等级（例如按半径 × 余量取），
+                // 只要走廊里有一段净空落在两者之间，第一趟就处处不通视、
+                // PullString 直接返回 -1，A* 明明搜到了路，请求却被判 Failed。
+                if (furthest < 0)
+                    furthest = FurthestVisible(grid, occupancy, distanceLevels, minLevel,
+                        waypoints, count, anchor);
 
                 if (furthest < 0) return -1; // 相邻航点都不通视 —— 数据异常
 
@@ -61,6 +74,22 @@ namespace Ember.Navigation
             }
 
             return written;
+        }
+
+        /// <summary>从最远端往回找第一个与 <paramref name="anchor"/> 通视的航点；没有返回 -1。</summary>
+        private static int FurthestVisible(in NavGrid grid, byte* occupancy, byte* distanceLevels,
+            int requiredLevel, int3* waypoints, int count, int anchor)
+        {
+            for (int candidate = count - 1; candidate > anchor; candidate--)
+            {
+                if (HasLineOfSight(grid, occupancy, distanceLevels, requiredLevel,
+                        waypoints[anchor], waypoints[candidate]))
+                {
+                    return candidate;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>两点通视：线段按体素边长一半步长采样，全部可走即通视。</summary>
