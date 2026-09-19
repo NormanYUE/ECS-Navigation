@@ -4,6 +4,32 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.18] — The 2D ORCA constraint axis was off by 90°
+
+### Fixed
+
+- **A wall at your side would block forward motion, pinning agents at zero velocity while their preferred velocity was non-zero.**
+
+  A `NavOrcaLine` half-plane is `dot(v, Normal) >= Offset` with `Normal = cross(planeNormal, direction)`.
+  The `direction` handed to `FromDirectionPoint` is the **boundary direction**, which sits one in-plane
+  90° away from the "away from the obstacle" normal — RVO2 writes exactly `line.direction = (unitW.y, -unitW.x)`.
+
+  The 2D solver passed `unitW` straight through as `direction` in two branches (relative velocity outside
+  the cut cone, and the already-overlapping case), rotating the half-plane by 90° so it constrained the
+  axis **perpendicular** to the obstacle. Worse, in that branch `Offset` is exactly 0 (the boundary runs
+  through the origin), so the linear program's projection of the preferred velocity landed precisely on
+  the origin — velocity zero.
+
+  The symptom was thoroughly misleading: the distance field reported the obstacle to the **side**
+  (0.00 m along the heading, 2.24 m lateral), so geometry appeared not to block anything, yet the agent
+  stayed pinned; setting `TimeHorizonObst` to 0 (no static obstacle constraints at all) released it
+  instantly — the problem was never *whether* the constraint was generated, but that it was generated on
+  the wrong axis.
+
+  The 3D solver (`NavOrcaMath3D`) uses `normal = unitW` and was already correct. The existing
+  `CoincidentAgents_CollisionBranchEscapesAlongRelativeVelocity` test had locked in the rotated axis;
+  it now asserts the RVO2 separation axis instead.
+
 ## [0.2.17] — Smoothing clearance is a preference, not a gate
 
 ### Fixed

@@ -4,6 +4,30 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.2.18] — 二维 ORCA 的约束轴差了一个 90°
+
+### Fixed
+
+- **侧面的墙会把前进方向堵死，代理期望速度有值却纹丝不动（速度被解成零）。**
+
+  `NavOrcaLine` 的半平面是 `dot(v, Normal) >= Offset`，而 `Normal = cross(planeNormal, direction)`
+  —— 交给 `FromDirectionPoint` 的 `direction` 是**边界方向**，比「背离障碍的法线」多一个平面内 90°。
+  RVO2 原版写的正是 `line.direction = (unitW.y, -unitW.x)`。
+
+  二维求解器在「相对速度落在切锥外」与「已重叠」这两条分支里把 `unitW` 直接当 `direction` 传了，
+  半平面因此转了 90°，卡到与障碍**垂直**的那个轴上。更糟的是这条分支下 `Offset` 恰好为 0
+  （边界过原点），线性规划把期望速度投影上去的结果正好落回原点 —— 速度归零。
+
+  症状极具迷惑性：距离场显示障碍在**侧面**（沿前进方向投影 0.00 米、侧向 2.24 米），
+  几何上完全不该挡住前进，代理却原地钉死；把 `TimeHorizonObst` 置 0（不生成静态障碍约束）
+  立即解冻 —— 因为问题从来不是约束**该不该**生成，而是它生成错了轴。
+
+  三维版（`NavOrcaMath3D`）用的是 `normal = unitW`，本来就是对的，未受影响。
+
+  同类问题在「已重叠」分支里也各有一份，一并修正。既有用例
+  `CoincidentAgents_CollisionBranchEscapesAlongRelativeVelocity` 原先锁的是转错 90° 的那个轴，
+  已按 RVO2 语义更正为分离轴。
+
 ## [0.2.17] — 平滑的净空是偏好，不再是门槛
 
 ### Fixed
