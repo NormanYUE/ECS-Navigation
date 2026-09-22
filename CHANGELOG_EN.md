@@ -4,6 +4,50 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.23] — Line of sight now uses a supercover walk; diagonal steps may not cut corners
+
+### Fixed
+
+- **Smoothed paths grazed unwalkable voxels, so agents following them stepped inside.**
+
+  `HasLineOfSight` tested visibility by point-sampling at half a voxel edge. If a segment
+  clips an unwalkable voxel over a stretch shorter than the sampling step, every sample
+  skips over it and the line is reported clear.
+
+  This is systematic, not occasional: an 8-connected diagonal step is `0.5×√2` long and its
+  **midpoint lands exactly on the corner shared by four voxels** — precisely where a blocked
+  corner gets clipped. Sampling at half a voxel puts samples at 1/3 and 2/3, straddling it.
+
+  Measured in the consumer project: of 23 path edges, **7 were impassable at the agent's
+  radius — and all 7 were reported clear** by the old criterion. An agent following such a
+  line steps into an unwalkable voxel, gets stopped by its own wall-slide layer, and never
+  recovers.
+
+  Replaced with a **supercover walk**: every voxel the segment passes through is visited;
+  where the segment crosses a grid corner, all non-empty combinations of the tied axes are
+  checked (at most 7 cells). On grid-aligned geometry this is the common case, not a rarity.
+
+- **Diagonal steps in A* and the flow field were allowed to cut corners.**
+
+  A diagonal move only validated its destination, so the search could hand out paths that
+  slip between two walls at their shared corner: both ends walkable, the intermediate cell
+  blocked, and any agent with a non-zero radius unable to pass.
+
+  A diagonal move now also validates every **intermediate cell** it grazes (the non-empty
+  proper subsets of its components: two in 2D, six in 3D). Applied to `NavAStar.Relax`,
+  `NavFlowFieldSolver.Relax` and `NavFlowFieldSolver.TryGetNext`, with the decomposition
+  shared in `NavCorner`.
+
+  The same invariant has a second consumer: the fallback pass of `PullString` down to the
+  minimum clearance level assumes "adjacent waypoints are always connected in an A* of that
+  level". Once A* cuts corners, that assumption breaks — the fallback also fails and the
+  whole request is reported as Failed.
+
+### Tests
+
+- Added `NavPathSmootherTests`: corner squeezing, a single blocked neighbor, orthogonal
+  steps unaffected, and an end-to-end "adjacent waypoints of an A* path are always visible".
+
 ## [0.2.22] — Look-ahead projects onto the incoming segment, no longer cutting corners sideways
 
 ### Fixed

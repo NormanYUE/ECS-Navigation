@@ -92,7 +92,22 @@ namespace Ember.Navigation
             return -1;
         }
 
-        /// <summary>两点通视：线段按体素边长一半步长采样，全部可走即通视。</summary>
+        /// <summary>
+        /// 两点通视：把线段经过的<b>每一个</b>体素都查一遍（超覆盖遍历），
+        /// 而不是按固定步长取采样点。
+        ///
+        /// <b>为什么不能用点采样</b>：线段只要在某个不可走体素里掠过一小段
+        /// （比采样步长短），采样点就会整体跨过去、判成通视。这不是偶发 ——
+        /// 8 邻接的对角步长 0.5×√2，<b>中点精确落在四个体素共享的角上</b>，
+        /// 正是最容易擦到被堵角落的位置；按半格采样时采样点落在 1/3、2/3 处，
+        /// 恰好跨过那个中点。实测消费方 23 条路径边里 7 条按代理半径走不通，
+        /// 按旧口径<b>全部</b>判成通视 —— 代理沿这条线走就会踩进不可走体素，
+        /// 然后被自己的防穿墙层拦下，站在原地再也过不去。
+        ///
+        /// 恰好从格点（多个轴同时跨越）穿过时，把这些轴的<b>所有非空组合</b>格子都查一遍：
+        /// 斜对角那一格正是这么被擦到的，漏掉它整件事就白做。
+        /// 格对齐几何下这条路径是常态而非例外 —— 对角步每一步都同时跨两个轴。
+        /// </summary>
         public static bool HasLineOfSight(
             in NavGrid grid,
             byte* occupancy,
@@ -101,21 +116,75 @@ namespace Ember.Navigation
             int3 a,
             int3 b)
         {
+            if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, a)) return false;
+            if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, b)) return false;
+
             float3 worldA = grid.VoxelToWorld(a);
             float3 worldB = grid.VoxelToWorld(b);
-            float length = math.length(worldB - worldA);
-            float step = math.max(grid.VoxelSize * 0.5f, 1e-5f);
-            int samples = math.max(1, (int)math.ceil(length / step));
+            float3 delta = worldB - worldA;
 
-            for (int i = 0; i <= samples; i++)
+            var step = new int3(
+                delta.x > 0f ? 1 : delta.x < 0f ? -1 : 0,
+                delta.y > 0f ? 1 : delta.y < 0f ? -1 : 0,
+                delta.z > 0f ? 1 : delta.z < 0f ? -1 : 0);
+
+            float cell = grid.VoxelSize;
+            float3 origin = grid.Origin;
+
+            // 沿线段到下一条格线的参数距离，以及跨一整格所需的参数增量。
+            // 该轴无位移时给正无穷，取最小值时自然让别的轴独占。
+            var tMax = new float3(
+                NextLine(delta.x, step.x, origin.x, a.x, worldA.x, cell),
+                NextLine(delta.y, step.y, origin.y, a.y, worldA.y, cell),
+                NextLine(delta.z, step.z, origin.z, a.z, worldA.z, cell));
+            var tDelta = new float3(
+                step.x == 0 ? float.PositiveInfinity : cell / math.abs(delta.x),
+                step.y == 0 ? float.PositiveInfinity : cell / math.abs(delta.y),
+                step.z == 0 ? float.PositiveInfinity : cell / math.abs(delta.z));
+
+            int3 cur = a;
+            // 上界：两格之间最多跨越 |Δx|+|Δy|+|Δz| 条格线。留余量防浮点退化。
+            int guard = math.abs(b.x - a.x) + math.abs(b.y - a.y) + math.abs(b.z - a.z) + 4;
+
+            for (int i = 0; i < guard; i++)
             {
-                float t = (float)i / samples;
-                float3 point = math.lerp(worldA, worldB, t);
-                int3 voxel = grid.WorldToVoxel(point);
-                if (!grid.IsInside(voxel)) return false;
-                if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, voxel)) return false;
+                if (math.all(cur == b)) return true;
+
+                float tNext = math.cmin(tMax);
+                // 还有轴可跨却已无路可走 —— 只可能是数值退化，保守判不通。
+                if (!math.isfinite(tNext)) return false;
+
+                bool3 tie = math.abs(tMax - tNext) <= 1e-6f;
+
+                // 同时跨越的各轴的所有非空组合格子。最多 3 轴同时跨越，即 7 格。
+                for (int mask = 1; mask < 8; mask++)
+                {
+                    var offset = new int3(
+                        (mask & 1) != 0 && tie.x ? step.x : 0,
+                        (mask & 2) != 0 && tie.y ? step.y : 0,
+                        (mask & 4) != 0 && tie.z ? step.z : 0);
+                    if (offset.x == 0 && offset.y == 0 && offset.z == 0) continue;
+                    if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, cur + offset))
+                        return false;
+                }
+
+                if (tie.x) { cur.x += step.x; tMax.x += tDelta.x; }
+                if (tie.y) { cur.y += step.y; tMax.y += tDelta.y; }
+                if (tie.z) { cur.z += step.z; tMax.z += tDelta.z; }
+
+                if (!IsWalkable(grid, occupancy, distanceLevels, requiredLevel, cur)) return false;
             }
-            return true;
+
+            return false;
+        }
+
+        /// <summary>沿线段到下一条格线的参数距离；该轴无位移时给正无穷。</summary>
+        private static float NextLine(float delta, int step, float origin, int cellIndex,
+            float from, float cell)
+        {
+            if (step == 0) return float.PositiveInfinity;
+            float line = origin + (cellIndex + (step > 0 ? 1 : 0)) * cell;
+            return (line - from) / delta;
         }
 
         private static bool IsWalkable(in NavGrid grid,

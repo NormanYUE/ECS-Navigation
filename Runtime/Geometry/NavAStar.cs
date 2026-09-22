@@ -163,6 +163,13 @@ namespace Ember.Navigation
                 if (!IsWalkable(ref ctx, ni)) continue;
                 if (ctx.RestrictNode >= 0 && ctx.VoxelNodes[ni] != ctx.RestrictNode) continue;
 
+                // 对角步不许切角：这一步会擦到的所有中间格都必须可走。
+                // 只看终点的话，A* 会给出从两堵墙的夹角斜切过去的路径 —— 两端都可走，
+                // 中间擦过的那格不可走，半径大于零的代理根本过不去：搜索说通、走起来卡死。
+                if (NavCorner.IsDiagonal(dx, dy, dz)
+                    && !PartialStepsWalkable(ref ctx, grid, voxel, dx, dy, dz))
+                    continue;
+
                 float step = math.length((float3)(n - voxel)) * voxelSize;
                 float candidate = g + step * (ctx.Costs[ni] / 85f);
 
@@ -175,6 +182,23 @@ namespace Ember.Navigation
                         ref ctx.HeapCount, f, ni);
                 }
             }
+        }
+
+        /// <summary>
+        /// 一次对角位移会擦到的中间格是否都可走。
+        /// 中间偏移落在整格之内，而整格已由调用方验过界内，故不必再判界。
+        /// </summary>
+        private static bool PartialStepsWalkable(ref Context ctx, NavGrid grid, int3 voxel,
+            int dx, int dy, int dz)
+        {
+            for (int mask = 1; mask < 8; mask++)
+            {
+                int3 offset = NavCorner.Offset(mask, dx, dy, dz);
+                if (!NavCorner.IsPartial(offset, dx, dy, dz)) continue;
+                if (!IsWalkable(ref ctx, grid.VoxelIndex(voxel + offset))) return false;
+            }
+
+            return true;
         }
 
         private static float Heuristic(ref Context ctx, int3 voxel)
