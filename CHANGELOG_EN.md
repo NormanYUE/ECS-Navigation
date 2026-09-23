@@ -4,6 +4,31 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.2.24] — Path gizmo no longer draws a phantom line through blocked cells
+
+### Fixed
+
+- **The gizmo connected the agent position straight to `waypoints[CurrentIndex]`.**
+
+  `CurrentIndex` is the waypoint being travelled to, which after smoothing is often twenty-odd
+  metres away — so a straight line appeared, cutting across large blocked regions.
+  **That is not the path**: the agent follows the polyline, with the look-ahead taken one metre
+  along it, and never travels that line. The phantom was highly misleading: it looked exactly
+  like "the planner routed through blocked cells".
+
+  It now starts from the **projection onto the polyline** (same convention as
+  `NavPathFollower.LookAhead`), and draws the agent's lateral offset as a short separate
+  segment in the velocity colour. What is drawn is what the agent actually follows.
+
+### Changed
+
+- Considered adding a "return to path first when laterally off" rule to `NavPathFollower` and
+  **dropped it**: the criterion cannot be distinguished from ordinary pure pursuit — the
+  measured failure was only 0.39 m off path, while two existing cases deliberately construct
+  1 m and 2 m offsets and assert that look-ahead still governs. The real constraint is
+  "moving along this axis is blocked", which belongs to the **movement layer** (the consumer
+  cancels the blocked axis against the voxel boundary); the follower has no walkability data.
+
 ## [0.2.23] — Line of sight now uses a supercover walk; diagonal steps may not cut corners
 
 ### Fixed
