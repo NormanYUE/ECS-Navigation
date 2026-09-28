@@ -4,6 +4,21 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.4.1] — the .meta that 0.4.0 missed
+
+### Fixed
+
+- **`tests/Ember.Navigation.Tests/NavWorldViewClearanceTests.cs` had no `.meta`**. Unity **silently
+  ignores** every asset without one inside an immutable package folder (`Library/PackageCache`) and only
+  logs a warning. A sibling package (`Ember.Collision` 0.3.1) once lost an entire assembly to this.
+  Written by the framework-side `tools/stamp-package-metas.py`: the GUID is derived from
+  "package name + in-package relative path", so it is idempotent and identical across machines, and
+  existing `.meta` files keep their GUID.
+
+### Notes
+
+- No other asset in the package is missing one (`--check` is green). Worth running as a gate before a release.
+
 ## [0.4.0] — Flow-field walkability honours the agent radius
 
 ### Added

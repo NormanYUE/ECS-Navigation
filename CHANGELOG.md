@@ -4,6 +4,20 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.4.1] — 补上 0.4.0 漏掉的一个 .meta
+
+### Fixed
+
+- **`tests/Ember.Navigation.Tests/NavWorldViewClearanceTests.cs` 缺 `.meta`**：Unity 对不可变包目录
+  （`Library/PackageCache`）里没有 `.meta` 的资源**直接忽略**，只在控制台丢一条警告。
+  同源包（`Ember.Collision` 0.3.1）曾因此整个程序集不加载。
+  由框架侧 `tools/stamp-package-metas.py` 补写：GUID 从「包名 + 包内相对路径」派生，
+  幂等、跨机器一致，已存在的 `.meta` 不改 GUID。
+
+### Notes
+
+- 除这个测试文件外包内无缺漏（`--check` 全绿）。发布前一并跑一下这个门禁。
+
 ## [0.4.0] — 流场可走判定支持代理半径（净空）
 
 ### Added
