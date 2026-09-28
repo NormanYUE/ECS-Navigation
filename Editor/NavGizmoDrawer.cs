@@ -224,7 +224,23 @@ namespace Ember.Navigation.Editor
 
             Handles.color = PathColor;
             int start = math.clamp(path.CurrentIndex, 0, path.WaypointCount - 1);
-            var previous = new Vector3(position.x, position.y, PlaneZ(nav, position.z));
+
+            // 起点取**折线上的投影点**，而不是单位当前位置。
+            //
+            // 原实现从单位位置直接连到 waypoints[CurrentIndex]，而 CurrentIndex 是
+            // 「正在赶往的那个航点」，平滑之后常在二十几米外 —— 屏幕上于是出现一条笔直
+            // 穿过整个地图、穿过大片禁区的线。那不是路径：单位沿折线走，从不走这条线。
+            // 这条假线误导性极强，看着就像「规划穿过了禁区」。
+            var previous = ProjectOntoPath(position, waypoints, path.WaypointCount, start, in nav);
+
+            // 单位到折线的横向偏离单画一段：短，且如实反映它在往哪边靠。
+            var agent = new Vector3(position.x, position.y, previous.z);
+            if (math.abs(agent.x - previous.x) + math.abs(agent.y - previous.y) > 1e-4f)
+            {
+                Handles.color = VelocityColor;
+                Handles.DrawLine(agent, previous);
+                Handles.color = PathColor;
+            }
 
             for (int i = start; i < path.WaypointCount; i++)
             {
@@ -235,6 +251,46 @@ namespace Ember.Navigation.Editor
                 Handles.DrawLine(previous, current);
                 previous = current;
             }
+        }
+
+        /// <summary>
+        /// 把单位位置投影到折线上，取离它最近那一段上的最近点。
+        /// 与 <c>NavPathFollower.LookAhead</c> 同一口径（都从当前航点前一段起扫），
+        /// 画出来的才是它实际跟的那条线。
+        /// </summary>
+        private static Vector3 ProjectOntoPath(float3 position, BufferSpan<float3> waypoints,
+            int waypointCount, int currentIndex, in NavWorldView nav)
+        {
+            float planeZ = PlaneZ(nav, position.z);
+            var fallback = new Vector3(position.x, position.y, planeZ);
+            if (waypointCount < 2) return fallback;
+
+            var here = new float2(position.x, position.y);
+            int lastSegment = waypointCount - 2;
+            int from = math.clamp(currentIndex - 1, 0, lastSegment);
+            float bestSq = float.MaxValue;
+
+            for (int i = from; i <= lastSegment; i++)
+            {
+                float3 a3 = waypoints[i];
+                float3 b3 = waypoints[i + 1];
+                if (!IsFinite(a3) || !IsFinite(b3)) continue;
+
+                var a = new float2(a3.x, a3.y);
+                var segment = new float2(b3.x - a3.x, b3.y - a3.y);
+                float lengthSq = math.lengthsq(segment);
+                if (lengthSq <= 1e-12f) continue;
+
+                float t = math.clamp(math.dot(here - a, segment) / lengthSq, 0f, 1f);
+                var point = a + segment * t;
+                float distanceSq = math.distancesq(here, point);
+                if (distanceSq >= bestSq) continue;
+
+                bestSq = distanceSq;
+                fallback = new Vector3(point.x, point.y, planeZ);
+            }
+
+            return fallback;
         }
 
         private static void DrawArrow(float3 origin, float3 velocity, Color color)

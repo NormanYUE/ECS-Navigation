@@ -4,6 +4,54 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.3.0] — Debug layers default to paths and targets only
+
+### Changed
+
+- **The scene view now enables only the path layer by default** (waypoint polyline plus the current
+  path target); the voxel mesh, region and agent layers default to off.
+
+  The mesh layer used to fill the whole view with sampling steps derived from the target count, and
+  the agent layer drew three items per unit (radius circle, current velocity, preferred velocity) —
+  a few hundred units meant over a thousand lines burying the information that actually matters:
+  where the agent is heading and along which line. Open them individually in the debug window when
+  diagnosing road-network topology or avoidance behaviour.
+
+  The switches live in `EditorPrefs`, and `GetBool(key, default)` only reads — changing a default had
+  no effect for anyone who had ever touched the settings. A `LayoutVersion` was added: on mismatch the
+  four layer switches are cleared (keeping tuned parameters such as `MeshBudget` / `AgentRadius` /
+  `DrawPlaneZ`) so the new defaults take effect. **Changing any of those four defaults requires
+  incrementing `LayoutVersion`.**
+
+- Dependencies raised: `com.ember.ecs` 1.13.2, `com.ember.core` 2.1.7, `com.ember.collision` 1.0.16.
+  No source changes in this package — the bump only keeps the exact versions along the dependency
+  chain consistent (UPM resolves exact versions).
+
+## [0.2.24] — Path gizmo no longer draws a phantom line through blocked cells
+
+### Fixed
+
+- **The gizmo connected the agent position straight to `waypoints[CurrentIndex]`.**
+
+  `CurrentIndex` is the waypoint being travelled to, which after smoothing is often twenty-odd
+  metres away — so a straight line appeared, cutting across large blocked regions.
+  **That is not the path**: the agent follows the polyline, with the look-ahead taken one metre
+  along it, and never travels that line. The phantom was highly misleading: it looked exactly
+  like "the planner routed through blocked cells".
+
+  It now starts from the **projection onto the polyline** (same convention as
+  `NavPathFollower.LookAhead`), and draws the agent's lateral offset as a short separate
+  segment in the velocity colour. What is drawn is what the agent actually follows.
+
+### Changed
+
+- Considered adding a "return to path first when laterally off" rule to `NavPathFollower` and
+  **dropped it**: the criterion cannot be distinguished from ordinary pure pursuit — the
+  measured failure was only 0.39 m off path, while two existing cases deliberately construct
+  1 m and 2 m offsets and assert that look-ahead still governs. The real constraint is
+  "moving along this axis is blocked", which belongs to the **movement layer** (the consumer
+  cancels the blocked axis against the voxel boundary); the follower has no walkability data.
+
 ## [0.2.23] — Line of sight now uses a supercover walk; diagonal steps may not cut corners
 
 ### Fixed
