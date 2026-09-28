@@ -4,6 +4,25 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.4.2] — 包布局：开发文件移出 Unity 可见范围
+
+### Changed
+
+- **dotnet 工程移入 `dotnet~/`，`docs/` 改为 `docs~/`。** `Ember.Navigation.csproj` / `.sln` 与
+  `Editor/Ember.Navigation.Editor.csproj`（移到 `dotnet~/Editor/`）都只是 dotnet 侧
+  IDE / 命令行工程，不属于 UPM 包；`~` 后缀让 Unity 忽略它们（git 里仍在）。
+
+- 依赖提升：`com.ember.core` 2.1.7 → 2.1.8、`com.ember.collision` 1.0.16 → 1.0.17。
+
+配套两处工程改动：
+
+1. 显式 `<Compile Include="../Runtime/**/*.cs" />` —— 工程移出仓库根后 MSBuild 默认通配只看得到
+   `dotnet~/` 自己，否则会「编译 0 个源文件」却报 0 错误。
+2. Editor 工程目录整目录排除（`<DefaultItemExcludes>…;Editor/**</DefaultItemExcludes>`）——
+   它在 `dotnet~/Editor/obj/` 生成的 AssemblyInfo 会被默认通配扫进主工程，报 CS0579 重复特性。
+
+**无 API 变化**，Unity 侧编译行为不变（asmdef 与源码未动）。
+
 ## [0.4.1] — 补上 0.4.0 漏掉的一个 .meta
 
 ### Fixed

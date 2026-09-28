@@ -4,6 +4,29 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.4.2] — Package layout: development files hidden from Unity
+
+### Changed
+
+- **The dotnet projects moved into `dotnet~/`, and `docs/` became `docs~/`.** `Ember.Navigation.csproj`
+  / `.sln` and `Editor/Ember.Navigation.Editor.csproj` (now `dotnet~/Editor/`) are IDE / command-line
+  projects only and are not part of a UPM package; a trailing `~` makes Unity ignore them (they stay
+  in git).
+
+- Dependencies raised: `com.ember.core` 2.1.7 → 2.1.8 and `com.ember.collision` 1.0.16 → 1.0.17.
+
+Two supporting project changes:
+
+1. Explicit `<Compile Include="../Runtime/**/*.cs" />` — with the project outside the repository
+   root, MSBuild's default glob only sees `dotnet~/` itself, which would otherwise compile zero source
+   files while still reporting zero errors.
+2. The nested Editor project directory is excluded wholesale
+   (`<DefaultItemExcludes>…;Editor/**</DefaultItemExcludes>`) — the AssemblyInfo it generates under
+   `dotnet~/Editor/obj/` would otherwise be swept into the main project and trigger CS0579 (duplicate
+   attribute).
+
+**No API changes** — Unity-side compilation is unaffected (asmdefs and sources untouched).
+
 ## [0.4.1] — the .meta that 0.4.0 missed
 
 ### Fixed
