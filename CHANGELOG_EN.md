@@ -4,6 +4,38 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.4.0] — Flow-field walkability honours the agent radius
+
+### Added
+
+- **`NavWorldView.RequiredLevelFor(agentRadius, distanceBits, maxBakeRadius)`** — converts an agent radius
+  into a distance-field quantisation level and is now the single source of truth for the package. The formula
+  previously lived inline in `NavWorldView.IsWalkable`, was copied again in `NavPathSystem`, and had to be
+  copied a third time by consumers building their own `NavFlowFieldSolver.Context` — three copies drifting
+  apart means "one side says walkable, the other says blocked".
+- **Radius overloads on the flow-field API**: `SeedFlowSlot` / `StepFlowSlot` / `TryGetFlowNext` /
+  `TryExtractFlowPath` each take an extra `agentRadius`. The old signatures remain and are equivalent to
+  passing 0 (occupancy only), so existing callers behave exactly as before.
+- **`NavConfig.FlowClearanceRadius`** (default `0`) — the clearance radius used by the package's own
+  `NavFlowFieldSystem`. Set it to the agent radius (usually `DefaultRadius`) to match `IsWalkable` and the
+  projection system.
+
+### Fixed
+
+- **`NavPathSystem` dropped the clearance level on the flow-field fast path**: the A* search used the
+  radius-derived `level`, but the follow-up `TryExtractFlowPath` used 0 — the gradient could break on voxels
+  that A* considered blocked but the field considered walkable, silently falling back to HPA*. Both now
+  share the same `level`.
+
+### Notes
+
+- Seeding, stepping and querying **must use the same radius**: otherwise the field keeps voxels that were
+  walkable when seeded but are not when queried, leaving holes the gradient points into. When several agents
+  share one field, use the largest radius among them.
+- `NavFlowFieldSystem`'s defaults are unchanged (0 = previous behaviour). The package will not silently
+  shrink your walkable area: a larger clearance can cut corners into islands (the sample measured a
+  1.5x-radius net clearance killing the critical corner voxels).
+
 ## [0.3.0] — Debug layers default to paths and targets only
 
 ### Changed

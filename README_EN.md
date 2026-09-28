@@ -92,6 +92,19 @@ if (world.TryGetNavWorld(out var nav) && nav.IsReady)
     bool walkable = nav.IsWalkable(voxel, agentRadius);
     int region = nav.RegionAt(voxel);
     bool blocked = nav.IsOccupied(voxel);
+
+    // Flow-field gradients: seed / step / query must all get the same clearance radius
+    nav.SeedFlowSlot(ref slot, targetVoxel, nav.Generation, agentRadius);
+    nav.StepFlowSlot(ref slot, popBudget, agentRadius);
+    if (nav.TryGetFlowNext(ref slot, worldPosition, out var next, agentRadius))
+    {
+        // next = the next waypoint (voxel centre)
+    }
+
+    // Only needed when you write your own Burst sampling job: same level, do not recompute it
+    var state = nav.StateSnapshot;
+    int requiredLevel = NavWorldView.RequiredLevelFor(
+        agentRadius, state.DistanceBits, state.MaxBakeRadius);
 }
 ```
 
@@ -106,6 +119,7 @@ if (world.TryGetNavWorld(out var nav) && nav.IsReady)
 | `TimeHorizon` / `TimeHorizonObst` | ORCA time horizons (agent-agent / static obstacle) |
 | `MaxNeighbors` | Maximum neighbours per agent in ORCA |
 | `FlowFieldCacheSize` / `FlowFieldPopBudget` | Flow-field cache slots and per-frame pop budget |
+| `FlowClearanceRadius` | Clearance radius (m) for building / querying flow fields. 0 = occupancy only (default); set the agent radius to match `IsWalkable` |
 | `ArriveRadius` / `LookAheadDistance` | Path-following arrival radius and look-ahead distance |
 
 ## Known limits

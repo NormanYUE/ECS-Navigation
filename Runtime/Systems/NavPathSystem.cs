@@ -218,7 +218,7 @@ namespace Ember.Navigation
             if (flowSlot >= 0
                 && view.TryExtractFlowPath(ref flowSlots[flowSlot], start, goal,
                     (int3*)m_Workspace.RawWaypoints.GetUnsafePtr(),
-                    m_Workspace.RawWaypoints.Length, out int flowCount))
+                    m_Workspace.RawWaypoints.Length, out int flowCount, level))
             {
                 return flowCount;
             }
@@ -253,13 +253,13 @@ namespace Ember.Navigation
         /// </summary>
         private const float SmoothClearanceFactor = 1.6f;
 
-        /// <summary>把代理半径换算成距离场的量化等级（与 <c>NavWorldView.IsWalkable</c> 同口径）。</summary>
+        /// <summary>
+        /// 把代理半径换算成距离场的量化等级。
+        /// 转调 <see cref="NavWorldView.RequiredLevelFor"/>：全包只留一份公式，
+        /// 免得可走判定在 IsWalkable / 流场 / A* 三处漂移。
+        /// </summary>
         private static int RequiredLevel(in NavWorld state, float radius)
-        {
-            float maxRadius = math.max(state.MaxBakeRadius, 1e-6f);
-            int levels = state.DistanceBits == 16 ? 65535 : 255;
-            return (int)math.round(math.clamp(radius, 0f, maxRadius) / maxRadius * levels);
-        }
+            => NavWorldView.RequiredLevelFor(radius, state.DistanceBits, state.MaxBakeRadius);
 
         /// <summary>取代理的航点 buffer；已有则复用并按需扩容。</summary>
         private BufferHandle AcquirePathBuffer(World world, Entity entity, int required)

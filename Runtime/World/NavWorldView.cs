@@ -154,6 +154,25 @@ namespace Ember.Navigation
 
         // ---- 运行时查询（量化读取）----
 
+        /// <summary>
+        /// 代理半径 → 距离场量化等级（可走判定的<b>唯一口径</b>）。
+        ///
+        /// 距离场按 <c>MaxBakeRadius</c> 满量程量化（8 位 → 255 级，16 位 → 65535 级），
+        /// 半径越大等级越高、可走格要求越严；半径按 <c>[0, MaxBakeRadius]</c> 夹取。
+        /// 半径传 0 即「只看占据、不看净空」的旧口径。
+        ///
+        /// <b>播种 / 推进 / 查询三处必须传同一个半径</b>：不一致会让场在
+        /// 「播种时算可走、查询时算不可走」的体素上留下空洞，梯度指向不可走格。
+        /// 这个值还与 <see cref="IsWalkable"/>、投影系统同口径 —— 偏离就会撕出
+        /// 「投影认为可走、流场认为不可走」的夹缝带。
+        /// </summary>
+        public static int RequiredLevelFor(float agentRadius, byte distanceBits, float maxBakeRadius)
+        {
+            int levels = distanceBits == 16 ? 65535 : 255;
+            float maxRadius = math.max(maxBakeRadius, 1e-6f);
+            return (int)math.round(math.clamp(agentRadius, 0f, maxRadius) / maxRadius * levels);
+        }
+
         /// <summary>体素可通行判定：在界、未占据、距离场量化值 ≥ 半径量化值。</summary>
         public readonly bool IsWalkable(int3 voxel, float agentRadius)
         {
@@ -165,9 +184,7 @@ namespace Ember.Navigation
             var occupancy = m_World.GetBuffer<byte>(state.Occupancy);
             if ((occupancy[(int)(index >> 3)] & (byte)(1u << (int)(index & 7))) != 0) return false;
 
-            int levels = state.DistanceBits == 16 ? 65535 : 255;
-            float maxRadius = math.max(state.MaxBakeRadius, 1e-6f);
-            int required = (int)math.round(math.clamp(agentRadius, 0f, maxRadius) / maxRadius * levels);
+            int required = RequiredLevelFor(agentRadius, state.DistanceBits, state.MaxBakeRadius);
 
             if (state.DistanceBits == 16)
             {
@@ -284,6 +301,15 @@ namespace Ember.Navigation
         /// 目标不可走时场被标记完成但全为 ∞ —— 查询恒失败，不会返回垃圾方向。
         /// </summary>
         public unsafe bool SeedFlowSlot(ref NavFlowFieldSlot slot, int3 target, int generation)
+            => SeedFlowSlot(ref slot, target, generation, 0f);
+
+        /// <summary>
+        /// 播种单源场，净空按 <paramref name="agentRadius"/> 判定。
+        /// 半径须与后续 <see cref="StepFlowSlot(ref NavFlowFieldSlot, long, float)"/>、
+        /// 梯度查询一致（见 <see cref="RequiredLevelFor"/>）。
+        /// </summary>
+        public unsafe bool SeedFlowSlot(
+            ref NavFlowFieldSlot slot, int3 target, int generation, float agentRadius)
         {
             long voxelCount = Grid.VoxelCount;
             if (slot.Distances.IsNull || slot.VoxelCount != (int)voxelCount)
@@ -302,7 +328,7 @@ namespace Ember.Navigation
             slot.Complete = 0;
             slot.HeapCount = 0;
 
-            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot, agentRadius);
             NavFlowFieldSolver.Reset(ref context, voxelCount);
             bool seeded = NavFlowFieldSolver.Seed(ref context, target);
             slot.HeapCount = context.HeapCount;
@@ -310,10 +336,17 @@ namespace Ember.Navigation
             return seeded;
         }
 
-        /// <summary>推进该槽位的波前；返回波前是否已耗尽。</summary>
+        /// <summary>推进该槽位的波前；返回波前是否已耗尽（净空按 0：只看占据）。</summary>
         public unsafe bool StepFlowSlot(ref NavFlowFieldSlot slot, long popBudget)
+            => StepFlowSlot(ref slot, popBudget, 0f);
+
+        /// <summary>
+        /// 推进该槽位的波前，净空按 <paramref name="agentRadius"/> 判定
+        /// （须与播种时同一个半径，见 <see cref="RequiredLevelFor"/>）。
+        /// </summary>
+        public unsafe bool StepFlowSlot(ref NavFlowFieldSlot slot, long popBudget, float agentRadius)
         {
-            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot, agentRadius);
             bool complete = NavFlowFieldSolver.Step(ref context, popBudget);
             slot.HeapCount = context.HeapCount;
             slot.Complete = complete ? 1 : 0;
@@ -322,12 +355,20 @@ namespace Ember.Navigation
 
         /// <summary>世界点到流场目标的下一步落点；场未完成或已到局部最优时返回 false。</summary>
         public unsafe bool TryGetFlowNext(ref NavFlowFieldSlot slot, float3 worldPosition, out float3 next)
+            => TryGetFlowNext(ref slot, worldPosition, out next, 0f);
+
+        /// <summary>
+        /// 世界点到流场目标的下一步落点，净空按 <paramref name="agentRadius"/> 判定
+        /// （须与建场时同一个半径，否则梯度会在建场时判可走、查询时判不可走的格上断掉）。
+        /// </summary>
+        public unsafe bool TryGetFlowNext(
+            ref NavFlowFieldSlot slot, float3 worldPosition, out float3 next, float agentRadius)
         {
             next = worldPosition;
             if (slot.Complete == 0 || slot.Distances.IsNull) return false;
 
             NavGrid grid = Grid;
-            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot, agentRadius);
             if (!NavFlowFieldSolver.TryGetNext(ref context, grid.WorldToVoxelOnGrid(worldPosition),
                     out int3 nextVoxel))
                 return false;
@@ -344,6 +385,15 @@ namespace Ember.Navigation
         public unsafe bool TryExtractFlowPath(
             ref NavFlowFieldSlot slot, int3 start, int3 goal, int3* waypoints, int capacity,
             out int count)
+            => TryExtractFlowPath(ref slot, start, goal, waypoints, capacity, out count, 0f);
+
+        /// <summary>
+        /// 同上，净空按 <paramref name="agentRadius"/> 判定
+        /// （须与建场时同一个半径，见 <see cref="RequiredLevelFor"/>）。
+        /// </summary>
+        public unsafe bool TryExtractFlowPath(
+            ref NavFlowFieldSlot slot, int3 start, int3 goal, int3* waypoints, int capacity,
+            out int count, float agentRadius)
         {
             count = 0;
             if (slot.Complete == 0 || capacity <= 0) return false;
@@ -351,7 +401,7 @@ namespace Ember.Navigation
             NavGrid grid = Grid;
             if (!grid.IsInside(start) || !grid.IsInside(goal)) return false;
 
-            NavFlowFieldSolver.Context context = BuildFlowContext(slot);
+            NavFlowFieldSolver.Context context = BuildFlowContext(slot, agentRadius);
             int3 current = start;
             waypoints[count++] = current;
 
@@ -376,7 +426,8 @@ namespace Ember.Navigation
             return (int)math.max(capacity, 1024);
         }
 
-        private unsafe NavFlowFieldSolver.Context BuildFlowContext(in NavFlowFieldSlot slot)
+        private unsafe NavFlowFieldSolver.Context BuildFlowContext(
+            in NavFlowFieldSlot slot, float agentRadius)
         {
             NavWorld state = State;
             return new NavFlowFieldSolver.Context
@@ -391,7 +442,7 @@ namespace Ember.Navigation
                 HeapVoxels = (int*)m_World.GetBuffer<int>(slot.HeapVoxels).UnsafePtr,
                 HeapCapacity = m_World.GetBufferLength<float>(slot.HeapCosts),
                 HeapCount = slot.HeapCount,
-                RequiredLevel = 0,
+                RequiredLevel = RequiredLevelFor(agentRadius, state.DistanceBits, state.MaxBakeRadius),
             };
         }
     }

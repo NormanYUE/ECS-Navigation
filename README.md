@@ -90,6 +90,19 @@ if (world.TryGetNavWorld(out var nav) && nav.IsReady)
     bool walkable = nav.IsWalkable(voxel, agentRadius);
     int region = nav.RegionAt(voxel);
     bool blocked = nav.IsOccupied(voxel);
+
+    // 流场梯度：播种 / 推进 / 查询三处必须传同一个净空半径
+    nav.SeedFlowSlot(ref slot, targetVoxel, nav.Generation, agentRadius);
+    nav.StepFlowSlot(ref slot, popBudget, agentRadius);
+    if (nav.TryGetFlowNext(ref slot, worldPosition, out var next, agentRadius))
+    {
+        // next = 下一步落点（体素中心）
+    }
+
+    // 自己写 Burst 采样作业时才需要这个：同一个等级，别自己再算一遍
+    var state = nav.StateSnapshot;
+    int requiredLevel = NavWorldView.RequiredLevelFor(
+        agentRadius, state.DistanceBits, state.MaxBakeRadius);
 }
 ```
 
@@ -104,6 +117,7 @@ if (world.TryGetNavWorld(out var nav) && nav.IsReady)
 | `TimeHorizon` / `TimeHorizonObst` | ORCA 时间视界（代理间 / 静态障碍） |
 | `MaxNeighbors` | 每代理参与 ORCA 的最大邻居数 |
 | `FlowFieldCacheSize` / `FlowFieldPopBudget` | 流场缓存槽位数与每帧总弹出预算 |
+| `FlowClearanceRadius` | 流场建场 / 查询的净空半径（米）。0 = 只看占据（默认）；设成代理半径才与 `IsWalkable` 同口径 |
 | `ArriveRadius` / `LookAheadDistance` | 路径跟随的到达半径与前瞻距离 |
 
 ## 已知边界
