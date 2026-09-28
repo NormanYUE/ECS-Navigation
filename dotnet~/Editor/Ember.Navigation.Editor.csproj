@@ -6,25 +6,26 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>Ember.Navigation.Editor</RootNamespace>
         <AssemblyName>Ember.Navigation.Editor</AssemblyName>
-        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Framework</EmberFrameworkDir>
+        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Framework</EmberFrameworkDir>
         <UnityManagedDir Condition="'$(UnityManagedDir)' == ''">/Applications/Unity/Hub/Editor/2022.3.62f2/Unity.app/Contents/Managed</UnityManagedDir>
     </PropertyGroup>
 
+    <!-- 工程放在 dotnet~/Editor/，源码在仓库根的 Editor/；显式包含源码树
+         （MSBuild 默认通配相对工程目录，不包含它）。 -->
     <ItemGroup>
-        <Compile Remove="bin/**" />
-        <Compile Remove="obj/**" />
+        <Compile Include="../../Editor/**/*.cs" />
     </ItemGroup>
 
     <PropertyGroup>
-        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
+        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="../Ember.Navigation.csproj" />
         <!-- Ember.Core / Ember.Collision 用源码工程引用：派生模块之间一律
              ProjectReference，旧的 *.Package 包库已废弃删除。 -->
-        <ProjectReference Include="../../Ember.Core/Ember.Core.csproj" />
-        <ProjectReference Include="../../Ember.Collision/Ember.Collision.csproj" />
+        <ProjectReference Include="../../../Ember.Core/dotnet~/Ember.Core.csproj" />
+        <ProjectReference Include="../../../Ember.Collision/dotnet~/Ember.Collision.csproj" />
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
             <Private>false</Private>

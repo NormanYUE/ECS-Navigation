@@ -4,6 +4,65 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.4.2] — 包布局：开发文件移出 Unity 可见范围
+
+### Changed
+
+- **dotnet 工程移入 `dotnet~/`，`docs/` 改为 `docs~/`。** `Ember.Navigation.csproj` / `.sln` 与
+  `Editor/Ember.Navigation.Editor.csproj`（移到 `dotnet~/Editor/`）都只是 dotnet 侧
+  IDE / 命令行工程，不属于 UPM 包；`~` 后缀让 Unity 忽略它们（git 里仍在）。
+
+- 依赖提升：`com.ember.core` 2.1.7 → 2.1.8、`com.ember.collision` 1.0.16 → 1.0.17。
+
+配套两处工程改动：
+
+1. 显式 `<Compile Include="../Runtime/**/*.cs" />` —— 工程移出仓库根后 MSBuild 默认通配只看得到
+   `dotnet~/` 自己，否则会「编译 0 个源文件」却报 0 错误。
+2. Editor 工程目录整目录排除（`<DefaultItemExcludes>…;Editor/**</DefaultItemExcludes>`）——
+   它在 `dotnet~/Editor/obj/` 生成的 AssemblyInfo 会被默认通配扫进主工程，报 CS0579 重复特性。
+
+**无 API 变化**，Unity 侧编译行为不变（asmdef 与源码未动）。
+
+## [0.4.1] — 补上 0.4.0 漏掉的一个 .meta
+
+### Fixed
+
+- **`tests/Ember.Navigation.Tests/NavWorldViewClearanceTests.cs` 缺 `.meta`**：Unity 对不可变包目录
+  （`Library/PackageCache`）里没有 `.meta` 的资源**直接忽略**，只在控制台丢一条警告。
+  同源包（`Ember.Collision` 0.3.1）曾因此整个程序集不加载。
+  由框架侧 `tools/stamp-package-metas.py` 补写：GUID 从「包名 + 包内相对路径」派生，
+  幂等、跨机器一致，已存在的 `.meta` 不改 GUID。
+
+### Notes
+
+- 除这个测试文件外包内无缺漏（`--check` 全绿）。发布前一并跑一下这个门禁。
+
+## [0.4.0] — 流场可走判定支持代理半径（净空）
+
+### Added
+
+- **`NavWorldView.RequiredLevelFor(agentRadius, distanceBits, maxBakeRadius)`**：把代理半径换算成距离场
+  的量化等级，全包唯一口径。此前这段公式内联在 `NavWorldView.IsWalkable`、又抄在 `NavPathSystem` 里，
+  而自建 `NavFlowFieldSolver.Context` 的消费方还得再复刻第三份 —— 三份公式漂移，就等于
+  「一边判可走、一边判不可走」。
+- **流场 API 的带半径重载**：`SeedFlowSlot` / `StepFlowSlot` / `TryGetFlowNext` / `TryExtractFlowPath`
+  各多一个 `agentRadius` 参数。旧签名保留，等价于传 0（只看占据、不看净空），既有调用方行为不变。
+- **`NavConfig.FlowClearanceRadius`**（默认 `0`）：包内 `NavFlowFieldSystem` 的净空半径。设成代理半径
+  （通常就是 `DefaultRadius`）才与 `IsWalkable`、投影系统同口径。
+
+### Fixed
+
+- **`NavPathSystem` 走流场快速路径时丢了净空等级**：A* 搜索按代理半径算出的 `level` 判可走，而随后的
+  `TryExtractFlowPath` 用的是 0 —— 梯度会在「A* 认为要绕、流场认为可走」的临界格上断开，白回退到
+  HPA*。现在两者共用同一个 `level`。
+
+### Notes
+
+- 播种 / 推进 / 查询**必须传同一个半径**：不一致会让场在「播种时算可走、查询时算不可走」的体素上留下
+  空洞（梯度指向不可走格）。多代理共用一条场时，取其中最大的半径。
+- `NavFlowFieldSystem` 的默认值没变（0 = 旧行为）。包不替使用者决定可走区大小：净空一大，密集处的
+  临界格可能被掐成孤岛（示例实测：净空取 1.5 × 半径会把拐角处的临界体素判死）。
+
 ## [0.3.0] — 调试图层默认只保留路径与目标点
 
 ### Changed

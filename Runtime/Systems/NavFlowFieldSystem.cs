@@ -16,6 +16,9 @@ namespace Ember.Navigation
     /// 代际不符的槽位立即回收。
     ///
     /// 场数据按槽位<b>按需分配</b>，不按缓存上限满额预分配。
+    ///
+    /// <b>净空</b>：场的可走判定看 <see cref="NavConfig.FlowClearanceRadius"/>；
+    /// 出厂默认 0（只看占据），设成代理半径才与投影 / <c>IsWalkable</c> 同口径。
     /// </summary>
     public sealed class NavFlowFieldSystem : SystemBase
     {
@@ -61,7 +64,7 @@ namespace Ember.Navigation
                 m_Frame++;
                 NavGrid grid = view.Grid;
 
-                TrackRequestedTargets(world, view, slots, state, grid);
+                TrackRequestedTargets(world, view, slots, state, grid, config);
                 AdvancePendingFields(view, slots, state, config);
             }
         }
@@ -69,7 +72,7 @@ namespace Ember.Navigation
         /// <summary>把本帧请求涉及的目标体素映射到槽位，并刷新其 LRU 时间戳。</summary>
         private unsafe void TrackRequestedTargets(
             World world, in NavWorldView view, NavFlowFieldSlot* slots, in NavWorld state,
-            in NavGrid grid)
+            in NavGrid grid, in NavConfig config)
         {
             ReadOnlyChunkList chunks = world.CompileQuery(m_Query).GetChunks();
             for (int c = 0; c < chunks.Count; c++)
@@ -85,7 +88,7 @@ namespace Ember.Navigation
                         continue;
 
                     int3 target = grid.WorldToVoxelOnGrid(requests.At(row).Target);
-                    int slot = FindOrAcquireSlot(view, slots, state, target);
+                    int slot = FindOrAcquireSlot(view, slots, state, target, config.FlowClearanceRadius);
                     if (slot >= 0) slots[slot].LastUsedFrame = m_Frame;
                 }
             }
@@ -113,13 +116,14 @@ namespace Ember.Navigation
             for (int i = 0; i < state.FlowSlotCount; i++)
             {
                 if (slots[i].InUse == 0 || slots[i].Complete != 0) continue;
-                view.StepFlowSlot(ref slots[i], budget);
+                view.StepFlowSlot(ref slots[i], budget, config.FlowClearanceRadius);
             }
         }
 
         /// <summary>命中已有槽位；否则占空闲槽；再否则淘汰最久未命中者并重新播种。</summary>
         private static unsafe int FindOrAcquireSlot(
-            in NavWorldView view, NavFlowFieldSlot* slots, in NavWorld state, int3 target)
+            in NavWorldView view, NavFlowFieldSlot* slots, in NavWorld state, int3 target,
+            float clearanceRadius)
         {
             int free = -1;
             int oldest = -1;
@@ -155,7 +159,7 @@ namespace Ember.Navigation
             if (slots[slot].InUse != 0) view.ReleaseFlowSlot(ref slots[slot]);
             slots[slot].InUse = 1;
             slots[slot].LastUsedFrame = 0;
-            view.SeedFlowSlot(ref slots[slot], target, state.Generation);
+            view.SeedFlowSlot(ref slots[slot], target, state.Generation, clearanceRadius);
             return slot;
         }
     }

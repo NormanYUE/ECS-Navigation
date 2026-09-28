@@ -19,11 +19,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Ember.Navigation.csproj" />
+        <ProjectReference Include="..\..\dotnet~\Ember.Navigation.csproj" />
         <!-- Ember.Core / Ember.Collision 用源码工程引用：派生模块之间一律
              ProjectReference，旧的 *.Package 包库已废弃删除。 -->
-        <ProjectReference Include="..\..\..\Ember.Core\Ember.Core.csproj" />
-        <ProjectReference Include="..\..\..\Ember.Collision\Ember.Collision.csproj" />
+        <ProjectReference Include="..\..\..\Ember.Core\dotnet~\Ember.Core.csproj" />
+        <ProjectReference Include="..\..\..\Ember.Collision\dotnet~\Ember.Collision.csproj" />
         <Reference Include="Ember">
             <HintPath>$(EmberRuntimeDll)</HintPath>
             <Private>true</Private>

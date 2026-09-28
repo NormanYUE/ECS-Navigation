@@ -37,6 +37,15 @@ namespace Ember.Navigation
         /// <summary>流场每帧总弹出预算（跨全部未完成场分摊）。</summary>
         public int FlowFieldPopBudget;
 
+        /// <summary>
+        /// 流场可走的净空半径（米）。0 = 只看占据、不看净空（出厂默认，与 0.3.0 及以前一致）。
+        /// 设成代理半径（通常就是 <see cref="DefaultRadius"/>）才与
+        /// <c>NavWorldView.IsWalkable</c>、投影系统同口径 —— 否则两者之间会撕出
+        /// 「投影认为可走、流场认为不可走」的夹缝带。
+        /// 播种 / 推进 / 查询三处共用这一个值（见 <c>NavWorldView.RequiredLevelFor</c>）。
+        /// </summary>
+        public float FlowClearanceRadius;
+
         /// <summary>ORCA 默认时间视界（秒）。</summary>
         public float TimeHorizon;
 
@@ -87,6 +96,7 @@ namespace Ember.Navigation
             RequestBudgetMs = 2f,
             FlowFieldCacheSize = 16,
             FlowFieldPopBudget = 8192,
+            FlowClearanceRadius = 0f,
             TimeHorizon = 2f,
             TimeHorizonObst = 4f,
             NeighborCellSize = 0f,
