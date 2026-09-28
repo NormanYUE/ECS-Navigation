@@ -8,15 +8,22 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>Ember.Navigation</RootNamespace>
         <AssemblyName>Ember.Navigation</AssemblyName>
-        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../Ember.Framework</EmberFrameworkDir>
-        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
-        <EmberGeneratorDll Condition="'$(EmberGeneratorDll)' == ''">$(MSBuildThisFileDirectory)../Ember.Package/RoslynAnalyzers/Ember.Generator.dll</EmberGeneratorDll>
-        <!-- tests/ 是独立测试工程，必须从默认通配项整体排除：只写 Compile Remove 时，
-             其文件仍留在 None 里并进入 CandidateAssemblyFiles，而 AssemblySearchPaths
-             的顺序是 {CandidateAssemblyFiles};{HintPathFromItem}，于是 Reference 会命中
-             tests 输出目录里的旧 DLL，HintPath 形同虚设。 -->
-        <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;Editor/**</DefaultItemExcludes>
+        <EmberFrameworkDir Condition="'$(EmberFrameworkDir)' == ''">$(MSBuildThisFileDirectory)../../Ember.Framework</EmberFrameworkDir>
+        <EmberRuntimeDll Condition="'$(EmberRuntimeDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Package/Runtime/Ember.dll</EmberRuntimeDll>
+        <EmberGeneratorDll Condition="'$(EmberGeneratorDll)' == ''">$(MSBuildThisFileDirectory)../../Ember.Package/RoslynAnalyzers/Ember.Generator.dll</EmberGeneratorDll>
+        <!-- dotnet~/Editor/ 是嵌套的 Editor 工程，它自己的 obj/ 会生成 AssemblyInfo /
+             AssemblyAttributes；默认通配是「工程目录递归」，会把这些生成文件扫进本工程，
+             造成 CS0579 重复特性。整目录排除（Compile Remove 不够：排除掉的仍留在 None 里）。 -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);Editor/**</DefaultItemExcludes>
     </PropertyGroup>
+
+    <!-- 工程放在 dotnet~/（Unity 忽略 ~ 结尾目录），源码在仓库根的 Runtime/。
+         MSBuild 的默认通配相对工程目录，所以这里显式包含源码树：
+         原先靠「工程在仓库根 + DefaultItemExcludes 排除 tests/Editor」达成的同一件事。 -->
+    <ItemGroup>
+        <Compile Include="../Runtime/**/*.cs" />
+    </ItemGroup>
+
 
     <ItemGroup>
         <!-- Ember（框架）仍以发布件引用 —— 框架保持 DLL 包，不随本次改动。
@@ -27,8 +34,8 @@
 
         <!-- Ember.Core / Ember.Collision 用源码工程引用：三者在同一套源码里，Unity 侧
              同样是源码编译在一起。不要退回引某个包库的 DLL —— 派生模块已经没有独立包库了。 -->
-        <ProjectReference Include="..\Ember.Core\Ember.Core.csproj" />
-        <ProjectReference Include="..\Ember.Collision\Ember.Collision.csproj" />
+        <ProjectReference Include="..\..\Ember.Core\dotnet~\Ember.Core.csproj" />
+        <ProjectReference Include="..\..\Ember.Collision\dotnet~\Ember.Collision.csproj" />
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>$(EmberFrameworkDir)/libs/UnityEngine.CoreModule.dll</HintPath>
             <Private>false</Private>
@@ -44,7 +51,7 @@
         <!-- 显式 Burst 策略（EmberJobCompilationMode.Burst）要求编译期可解析 Unity.Burst 类型，
              否则源生成器报 EMBER005。仅编译引用，运行时由 com.unity.burst 包提供。 -->
         <Reference Include="Unity.Burst">
-            <HintPath>$(MSBuildThisFileDirectory)Libs~/Unity.Burst.dll</HintPath>
+            <HintPath>$(MSBuildThisFileDirectory)../Libs~/Unity.Burst.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Analyzer Include="$(EmberGeneratorDll)" />
@@ -55,7 +62,7 @@
          工具本体在 Ember.Framework/tools/ 下。 -->
     <Target Name="StampPackageMetas" AfterTargets="Build"
             Condition="'$(EmberStampPackageMetas)' == 'true'">
-        <Exec Command="python3 &quot;$(EmberFrameworkDir)/tools/stamp-package-metas.py&quot; --package &quot;$(MSBuildThisFileDirectory).&quot; --name com.ember.navigation" />
+        <Exec Command="python3 &quot;$(EmberFrameworkDir)/tools/stamp-package-metas.py&quot; --package &quot;$(MSBuildThisFileDirectory)..&quot; --name com.ember.navigation" />
     </Target>
 
 </Project>
