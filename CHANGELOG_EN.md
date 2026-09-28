@@ -4,6 +4,29 @@ All notable changes to Ember Navigation.
 
 [中文](CHANGELOG.md)
 
+## [0.3.0] — Debug layers default to paths and targets only
+
+### Changed
+
+- **The scene view now enables only the path layer by default** (waypoint polyline plus the current
+  path target); the voxel mesh, region and agent layers default to off.
+
+  The mesh layer used to fill the whole view with sampling steps derived from the target count, and
+  the agent layer drew three items per unit (radius circle, current velocity, preferred velocity) —
+  a few hundred units meant over a thousand lines burying the information that actually matters:
+  where the agent is heading and along which line. Open them individually in the debug window when
+  diagnosing road-network topology or avoidance behaviour.
+
+  The switches live in `EditorPrefs`, and `GetBool(key, default)` only reads — changing a default had
+  no effect for anyone who had ever touched the settings. A `LayoutVersion` was added: on mismatch the
+  four layer switches are cleared (keeping tuned parameters such as `MeshBudget` / `AgentRadius` /
+  `DrawPlaneZ`) so the new defaults take effect. **Changing any of those four defaults requires
+  incrementing `LayoutVersion`.**
+
+- Dependencies raised: `com.ember.ecs` 1.13.2, `com.ember.core` 2.1.7, `com.ember.collision` 1.0.16.
+  No source changes in this package — the bump only keeps the exact versions along the dependency
+  chain consistent (UPM resolves exact versions).
+
 ## [0.2.24] — Path gizmo no longer draws a phantom line through blocked cells
 
 ### Fixed

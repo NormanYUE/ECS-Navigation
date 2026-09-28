@@ -4,6 +4,24 @@ All notable changes to Ember Navigation.
 
 [English](CHANGELOG_EN.md)
 
+## [0.3.0] — 调试图层默认只保留路径与目标点
+
+### Changed
+
+- **场景视图默认只开路径层**（航点连线 + 当前寻路目标点），体素网格 / 区域 / 代理三层默认关。
+
+  此前网格层按目标量反推采样步长铺满全屏，代理层又是每单位三笔（半径圆 + 当前速度 +
+  期望速度），几百个单位就是上千条线，把「去哪、走哪条线」这个真正的信息淹掉。要诊断路网
+  拓扑或避障行为，在调试窗口里单独打开。
+
+  开关存在 `EditorPrefs` 里，而 `GetBool(key, default)` 只读不写 —— 光改默认值对动过设置的
+  人完全无效。配套加了 `LayoutVersion`：版本不符时清掉那四个图层开关（保留 `MeshBudget` /
+  `AgentRadius` / `DrawPlaneZ` 这些调好的参数），让新默认值生效。**今后改动这四个默认值必须
+  递增 `LayoutVersion`。**
+
+- 依赖提升：`com.ember.ecs` 1.13.2、`com.ember.core` 2.1.7、`com.ember.collision` 1.0.16。
+  本包源码未因此变化 —— 提升版本只为让依赖链上的精确版本一致（UPM 按精确版本解析）。
+
 ## [0.2.24] — 路径 Gizmo 不再画出「穿过禁区」的假线
 
 ### Fixed
